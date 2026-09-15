@@ -1,0 +1,102 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "git:95f8c84c8ed54c362c7febff6327816fd2fee4ba",
+      "digest": {
+        "sha1": "95f8c84c8ed54c362c7febff6327816fd2fee4ba",
+        "tree-diff-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tree-status-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ],
+  "predicateType": "https://libre-ai.example/attestation/evidence/v1",
+  "predicate": {
+    "schema_version": 2,
+    "id": "20260915T200045Z-95f8c84",
+    "created_at": "2026-09-15T20:00:45.783Z",
+    "repository": {
+      "name": "pi-evidence",
+      "origin": "https://github.com/libre-ai/pi-evidence.git"
+    },
+    "revision": {
+      "head": "95f8c84c8ed54c362c7febff6327816fd2fee4ba",
+      "branch": "feat/fleet-conformance",
+      "dirty": false,
+      "changed_files": [],
+      "status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "recipe": {
+      "origin": "declared",
+      "hash": "6bf3ceb4d34e8da805164ee88cbf6544a660458ebaea23f9dd965cdd67ac5968",
+      "checks": [
+        {
+          "id": "check",
+          "command": "bun",
+          "args": [
+            "run",
+            "check"
+          ],
+          "required": true,
+          "timeout_seconds": 1800
+        }
+      ],
+      "selected": [
+        "check"
+      ]
+    },
+    "results": [
+      {
+        "id": "check",
+        "command": "bun",
+        "args": [
+          "run",
+          "check"
+        ],
+        "required": true,
+        "status": "passed",
+        "exit_code": 0,
+        "started_at": "2026-09-15T20:00:45.784Z",
+        "duration_ms": 9627,
+        "stdout_sha256": "a55979f632fe8e41a96ad472a531bfd0a9c9cd510a7a4574af424ef3015f775e",
+        "stderr_sha256": "51a1a5267247e55950f57f9ed55b5dc81e2e99d1409737242ff4b1a1cb5333ca",
+        "stdout_tail": "\u001b[0m\u001b[34mChecked 53 files in 14\u001b[0m\u001b[0m\u001b[2m\u001b[34mms\u001b[0m\u001b[0m\u001b[34m.\u001b[0m\u001b[0m\u001b[34m No fixes applied.\u001b[0m\nbun test v1.4.0-canary.1 (57f349f63)\n# SUMMARY\n\n* Bad licenses: 0\n* Deprecated licenses: 0\n* Licenses without file extension: 0\n* Missing licenses: 0\n* Unused licenses: 0\n* Used licenses: Apache-2.0\n* Read errors: 0\n* Invalid SPDX License Expressions: 0\n* Files with copyright information: 86 / 86\n* Files with license information: 86 / 86\n\nCongratulations! Your project is compliant with version 3.3 of the REUSE Specification :-)\nno private marker in tracked files\n",
+        "stderr_tail": "$ bun run lint && bun run typecheck && bun test && bun run check:licenses && bun run check:markers\n$ biome ci .\n$ tsc --noEmit -p tsconfig.json\n------------------------|---------|---------|-------------------\nFile                    | % Funcs | % Lines | Uncovered Line #s\n------------------------|---------|---------|-------------------\nAll files               |  100.00 |   98.90 |\n extensions/evidence.ts |  100.00 |   97.53 | 68-70,194,204-205,236,257-258\n src/acceptance.ts      |  100.00 |   96.97 | 62-63,96-97\n src/attestation.ts     |  100.00 |   98.74 | 67,214-215\n src/binding.ts         |  100.00 |   98.85 | \n src/bundle.ts          |  100.00 |   98.00 | 85-86\n src/cli.ts             |  100.00 |   96.13 | 130-138,248\n src/compare.ts         |  100.00 |  100.00 | \n src/config.ts          |  100.00 |   96.36 | 115-118\n src/differential.ts    |  100.00 |   99.34 | \n src/discovery.ts       |  100.00 |  100.00 | \n src/environment.ts     |  100.00 |   98.51 | \n src/exec.ts            |  100.00 |  100.00 | \n src/init.ts            |  100.00 |  100.00 | \n src/prune.ts           |  100.00 |   98.08 | \n src/recipe.ts          |  100.00 |  100.00 | \n src/result.ts          |  100.00 |  100.00 | \n src/runner.ts          |  100.00 |  100.00 | \n src/scrub.ts           |  100.00 |  100.00 | \n src/service.ts         |  100.00 |  100.00 | \n src/signer.ts          |  100.00 |  100.00 | \n src/trust.ts           |  100.00 |   97.33 | 94-95\n src/verdict.ts         |  100.00 |  100.00 | \n------------------------|---------|---------|-------------------\n\n 103 pass\n 0 fail\n 661 expect() calls\nRan 103 tests across 24 files. [8.51s]\n$ reuse lint\n$ bun scripts/check-markers.ts\n",
+        "log_files": {
+          "stdout": "20260915T200045Z-95f8c84/check.stdout.log",
+          "stderr": "20260915T200045Z-95f8c84/check.stderr.log"
+        },
+        "redactions": []
+      }
+    ],
+    "verdict": "conformant",
+    "reasons": [
+      "all required checks passed",
+      ".evidence/ is not ignored by git: checks that scan untracked files may fail because of the evidence itself (add it to .gitignore)"
+    ],
+    "criteria_declared": true,
+    "requirement": "governance#114",
+    "environment": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "lockfiles": {
+        "bun.lock": "1fdd99c7ebb99fbfbd4f0ff6a3f113be0feac5105370ff83cac62e7e2d9021ac"
+      },
+      "node_modules_present": true,
+      "fingerprint_sha256": "a91921eb3eeb2aaf17fc1630563e1a09177453626a6d77b2748a852133eb7efe"
+    },
+    "differential": null,
+    "session": {
+      "session_id": "dev",
+      "provider": "cli",
+      "model": "none",
+      "thinking_level": null
+    },
+    "tools": {
+      "bun": "1.4.0",
+      "node": "v26.8.2",
+      "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)"
+    }
+  }
+}
