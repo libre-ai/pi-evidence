@@ -176,4 +176,21 @@ describe("computeVerdict", () => {
       ).verdict,
     ).toBe("unverified");
   });
+
+  test("an interrupted run is never conformant; an optional unavailable check is", () => {
+    const interrupted = computeVerdict(
+      [result("a", "passed", true), result("b", "aborted", false, null)],
+      "declared",
+      true,
+    );
+    expect(interrupted.verdict).toBe("incomplete");
+    expect(interrupted.reasons).toContain("b: aborted (run interrupted)");
+    const optionalMissing = computeVerdict(
+      [result("a", "passed", true), result("b", "unavailable", false, null)],
+      "declared",
+      true,
+    );
+    expect(optionalMissing.verdict).toBe("conformant");
+    expect(optionalMissing.reasons).toContain("b: optional check unavailable");
+  });
 });
