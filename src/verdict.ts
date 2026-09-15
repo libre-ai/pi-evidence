@@ -12,9 +12,9 @@ export interface VerdictExplanation {
   readonly criteria_declared: boolean;
 }
 
-// Precedence: any failure wins; then any required check that did not run;
-// then conformance only if criteria were declared; otherwise the honest
-// "no problem detected".
+// Precedence: any failure wins; then an interrupted run or a required check
+// that did not run; then conformance only if criteria were declared;
+// otherwise the honest "no problem detected".
 export function computeVerdict(
   results: readonly CheckResult[],
   origin: RecipeOrigin,
@@ -24,35 +24,34 @@ export function computeVerdict(
   const failed = results.filter(
     (r) => r.status === "failed" || r.status === "timeout",
   );
-  for (const r of failed)
+  for (const r of failed) {
     reasons.push(
       `${r.id}: ${r.status}${r.exit_code === null ? "" : ` (exit ${r.exit_code})`}`,
     );
-  const requiredMissing = results.filter(
-    (r) =>
-      r.required && ["unavailable", "aborted", "skipped"].includes(r.status),
+  }
+  const interrupted = results.filter(
+    (r) => r.status === "aborted" || r.status === "skipped",
   );
-  for (const r of requiredMissing)
-    reasons.push(`${r.id}: required check ${r.status}`);
+  for (const r of interrupted) reasons.push(`${r.id}: ${r.status} (run interrupted)`);
+  const requiredUnavailable = results.filter(
+    (r) => r.required && r.status === "unavailable",
+  );
+  for (const r of requiredUnavailable) reasons.push(`${r.id}: required check unavailable`);
+  const optionalUnavailable = results.filter(
+    (r) => !r.required && r.status === "unavailable",
+  );
+  for (const r of optionalUnavailable) reasons.push(`${r.id}: optional check unavailable`);
   const criteriaDeclared =
     origin === "declared" && results.some((r) => r.required);
-  if (failed.length > 0)
+  if (failed.length > 0) {
     return { verdict: "failed", reasons, criteria_declared: criteriaDeclared };
-  if (requiredMissing.length > 0)
-    return {
-      verdict: "incomplete",
-      reasons,
-      criteria_declared: criteriaDeclared,
-    };
+  }
+  if (interrupted.length > 0 || requiredUnavailable.length > 0) {
+    return { verdict: "incomplete", reasons, criteria_declared: criteriaDeclared };
+  }
   if (!allChecksSelected && origin === "declared") {
-    reasons.push(
-      "subset of the recipe executed: required checks may be missing",
-    );
-    return {
-      verdict: "incomplete",
-      reasons,
-      criteria_declared: criteriaDeclared,
-    };
+    reasons.push("subset of the recipe executed: required checks may be missing");
+    return { verdict: "incomplete", reasons, criteria_declared: criteriaDeclared };
   }
   if (criteriaDeclared) {
     reasons.push("all required checks passed");
