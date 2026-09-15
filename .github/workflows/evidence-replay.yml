@@ -28,6 +28,9 @@ jobs:
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
         with:
           bun-version: 1.4.0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4
+      - name: Install the tools the recipe declares (REUSE), so the replay is faithful
+        run: uv tool install reuse==6.2.0 && reuse --version
       - run: bun install --frozen-lockfile
       - name: Accept the committed recipe for this run
         run: bun bin/evidence.ts accept --by "ci:${{ github.run_id }}"
