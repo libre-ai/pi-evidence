@@ -29,6 +29,7 @@ et `docs/RECETTE-2.md`.
 ## Installation
 
 ```sh
+pi install git:github.com/libre-ai/pi-evidence                   # depuis GitHub
 pi install /chemin/absolu/vers/pi-evidence                        # par chemin local
 tar -xzf libre-ai-pi-evidence-0.1.0.tgz && pi install "$PWD/package"   # depuis l'archive de `bun run pack`
 pi list
