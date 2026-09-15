@@ -269,11 +269,10 @@ export class EvidenceService {
       ["check-ignore", "-q", recipe.value.output_dir],
       { cwd: this.deps.repoRoot, timeoutMs: 30_000 },
     );
-    if (ignored.ok && ignored.value.code !== 0) {
-      reasons.push(
-        `${recipe.value.output_dir}/ is not ignored by git: checks that scan untracked files may fail because of the evidence itself (add it to .gitignore)`,
-      );
-    }
+    const ignoreWarning =
+      ignored.ok && ignored.value.code !== 0
+        ? `${recipe.value.output_dir}/ is not ignored by git: checks that scan untracked files may fail because of the evidence itself (add it to .gitignore)`
+        : null;
     // The tree is bound again after the run: a check that mutates the
     // working tree (formatter, generated file) invalidates the evidence.
     const after = await bindRevision(this.deps.exec, this.deps.repoRoot, [
@@ -284,7 +283,10 @@ export class EvidenceService {
       recipe.value.origin,
       request.only.length === 0,
     );
+    // Verdict reasons first: they are what a reader acts on; the hygiene
+    // warning comes last.
     reasons.push(...explanation.reasons);
+    if (ignoreWarning !== null) reasons.push(ignoreWarning);
     let verdict = explanation.verdict;
     if (
       after.ok &&
