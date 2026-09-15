@@ -18,7 +18,8 @@
     "src/**/*.ts",
     "extensions/**/*.ts",
     "tests/**/*.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "bin/**/*.ts"
   ],
   "exclude": ["**/node_modules/**", "dist/**", "fixtures/**"]
 }

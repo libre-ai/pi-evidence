@@ -22,6 +22,8 @@ export interface ProcessOptions {
   readonly onStdout?: ((chunk: string) => void) | undefined;
   readonly onStderr?: ((chunk: string) => void) | undefined;
   readonly maxCapturedBytes?: number | undefined;
+  // Bytes written to the child's stdin, then closed; absent = stdin ignored.
+  readonly stdin?: Uint8Array | undefined;
 }
 
 export type ExecFn = (
@@ -50,8 +52,10 @@ export function runProcess(
       cwd: options.cwd,
       env: options.env === undefined ? process.env : { ...options.env },
       shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
+    if (options.stdin !== undefined)
+      child.stdin?.end(Buffer.from(options.stdin));
     let stdout = "";
     let stderr = "";
     let settled = false;

@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Libre AI contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Replays the declared recipe on the pull request head and compares the
+# result with the evidence bundle committed for that exact revision. A missing
+# bundle, a non-reproduced replay or a non-conformant verdict fails the job:
+# the developer's local evidence has to survive an independent machine.
+name: evidence-replay
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    name: Replay declared recipe
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+      - name: Accept the committed recipe for this run
+        run: bun bin/evidence.ts accept --by "ci:${{ github.run_id }}"
+      - name: Gate on the recipe (conformant required)
+        run: bun bin/evidence.ts gate --json
+      - name: Compare with the committed bundle for this revision, if any
+        run: bun bin/evidence.ts verify --json --require-reproduced --if-present

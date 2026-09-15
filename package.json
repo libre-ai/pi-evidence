@@ -8,6 +8,7 @@
     "pi-package"
   ],
   "files": [
+    "bin",
     "extensions",
     "src",
     "README.md",
@@ -42,5 +43,8 @@
     "check:markers": "bun scripts/check-markers.ts",
     "pack": "bun pm pack --destination dist",
     "check": "bun run lint && bun run typecheck && bun test && bun run check:licenses && bun run check:markers"
+  },
+  "bin": {
+    "evidence": "./bin/evidence.ts"
   }
 }

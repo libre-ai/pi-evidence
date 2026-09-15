@@ -6,12 +6,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type CheckSpec, DEFAULT_TIMEOUT_SECONDS } from "./config.ts";
 
-export const DISCOVERED_SCRIPTS = [
-  "lint",
-  "typecheck",
-  "test",
-  "check",
-] as const;
+// In this fleet a `check` script composes lint, typecheck and tests: when it
+// exists it is the only script discovered, otherwise every check would run
+// twice and the bundle would report the same failure under two ids.
+export const COMPOSITE_SCRIPT = "check" as const;
+export const DISCOVERED_SCRIPTS = ["lint", "typecheck", "test"] as const;
 
 // Discovered checks are never `required`: nobody declared them as criteria,
 // so they can only support an "unverified / no problem detected" verdict.
@@ -32,7 +31,11 @@ export async function discoverChecks(repoRoot: string): Promise<CheckSpec[]> {
       scripts = {};
     }
     const runner = existsSync(join(repoRoot, "bun.lock")) ? "bun" : "npm";
-    for (const name of DISCOVERED_SCRIPTS) {
+    const names: readonly string[] =
+      typeof scripts[COMPOSITE_SCRIPT] === "string"
+        ? [COMPOSITE_SCRIPT]
+        : DISCOVERED_SCRIPTS;
+    for (const name of names) {
       if (typeof scripts[name] !== "string") continue;
       checks.push({
         id: name,

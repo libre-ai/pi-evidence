@@ -38,6 +38,7 @@ describe("evidence schema", () => {
         model: "m",
         thinking_level: null,
       },
+      acceptRecipe: { by: "t" },
     });
     if (!run.ok) throw new Error(run.error);
     const stored = await Bun.file(run.value.file).json();

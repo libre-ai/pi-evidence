@@ -12,6 +12,8 @@ import {
 import { basename, join } from "node:path";
 import type { RevisionBinding, ToolVersions } from "./binding.ts";
 import type { CheckSpec } from "./config.ts";
+import type { Differential } from "./differential.ts";
+import type { EnvironmentFingerprint } from "./environment.ts";
 import type { RecipeOrigin } from "./recipe.ts";
 import { fail, ok, type Result } from "./result.ts";
 import type { CheckResult } from "./runner.ts";
@@ -25,7 +27,7 @@ export interface SessionIdentity {
 }
 
 export interface EvidenceBundle {
-  readonly schema_version: 1;
+  readonly schema_version: 2;
   readonly id: string;
   readonly created_at: string;
   readonly repository_root: string;
@@ -40,9 +42,16 @@ export interface EvidenceBundle {
   readonly verdict: Verdict;
   readonly reasons: readonly string[];
   readonly criteria_declared: boolean;
+  readonly requirement: string | null;
+  readonly environment: EnvironmentFingerprint;
+  readonly differential: Differential | null;
   readonly session: SessionIdentity;
   readonly tools: ToolVersions;
 }
+
+// Only run bundles are listed: sidecars (recipe lock, acceptance, attestation)
+// share the directory but never count as evidence of a run.
+export const BUNDLE_FILE = /^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7}(?:-[0-9]+)?\.json$/;
 
 export function bundleId(createdAt: Date, head: string): string {
   const stamp = createdAt
@@ -89,8 +98,11 @@ const VERDICTS: readonly Verdict[] = [
 // A structural guard, not a full schema: the JSON schema in docs/ is enforced
 // by the test-suite; at runtime a malformed bundle is reported, not trusted.
 export function parseBundle(value: unknown): Result<EvidenceBundle> {
-  if (!isRecord(value) || value.schema_version !== 1)
-    return fail("bundle: expected schema_version 1");
+  if (
+    !isRecord(value) ||
+    (value.schema_version !== 1 && value.schema_version !== 2)
+  )
+    return fail("bundle: expected schema_version 1 or 2");
   if (
     typeof value.id !== "string" ||
     typeof value.created_at !== "string" ||
@@ -131,7 +143,7 @@ export async function listBundleIds(outputDir: string): Promise<string[]> {
   try {
     const entries = await readdir(outputDir);
     return entries
-      .filter((name) => name.endsWith(".json"))
+      .filter((name) => BUNDLE_FILE.test(name))
       .map((name) => name.slice(0, -5))
       .sort();
   } catch {

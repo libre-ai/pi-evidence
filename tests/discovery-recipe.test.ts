@@ -44,6 +44,30 @@ describe("discoverChecks", () => {
       (await discoverChecks(withBun)).every((c) => c.required === false),
     ).toBe(true);
   });
+
+  test("discovers only `check` when it exists, since it composes the others", async () => {
+    const composite = repo({
+      "package.json": JSON.stringify({
+        scripts: { check: "bun run lint && bun test", lint: "x", test: "y" },
+      }),
+      "bun.lock": "",
+    });
+    expect(
+      (await discoverChecks(composite)).map(
+        (c) => `${c.id}:${c.command} ${c.args.join(" ")}`,
+      ),
+    ).toEqual(["check:bun run check"]);
+    const withCargo = repo({
+      "package.json": JSON.stringify({
+        scripts: { check: "x", typecheck: "y" },
+      }),
+      "Cargo.toml": '[package]\nname = "x"\n',
+    });
+    expect((await discoverChecks(withCargo)).map((c) => c.id)).toEqual([
+      "check",
+      "cargo-test",
+    ]);
+  });
 });
 
 describe("resolveRecipe", () => {

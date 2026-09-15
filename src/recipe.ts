@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from "node:crypto";
-import { type CheckSpec, DEFAULT_OUTPUT_DIR, loadConfig } from "./config.ts";
+import {
+  type CheckSpec,
+  DEFAULT_OUTPUT_DIR,
+  type GuardPolicy,
+  loadConfig,
+} from "./config.ts";
 import { discoverChecks } from "./discovery.ts";
 import { fail, ok, type Result } from "./result.ts";
 
@@ -12,6 +17,7 @@ export interface Recipe {
   readonly origin: RecipeOrigin;
   readonly checks: readonly CheckSpec[];
   readonly output_dir: string;
+  readonly policy: GuardPolicy;
   readonly hash: string;
 }
 
@@ -32,11 +38,12 @@ export async function resolveRecipe(repoRoot: string): Promise<Result<Recipe>> {
   const lookup = await loadConfig(repoRoot);
   if (!lookup.ok) return lookup;
   if (lookup.value.kind === "declared") {
-    const { checks, output_dir } = lookup.value.config;
+    const { checks, output_dir, policy } = lookup.value.config;
     return ok({
       origin: "declared",
       checks,
       output_dir,
+      policy,
       hash: recipeHash(checks),
     });
   }
@@ -50,6 +57,7 @@ export async function resolveRecipe(repoRoot: string): Promise<Result<Recipe>> {
     origin: "discovered",
     checks,
     output_dir: DEFAULT_OUTPUT_DIR,
+    policy: "remind",
     hash: recipeHash(checks),
   });
 }

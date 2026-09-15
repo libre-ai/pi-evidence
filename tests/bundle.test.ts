@@ -17,7 +17,7 @@ import {
 export const sampleBundle = (
   id = "20260915T120000Z-abcdef0",
 ): EvidenceBundle => ({
-  schema_version: 1,
+  schema_version: 2,
   id,
   created_at: "2026-09-15T12:00:00.000Z",
   repository_root: "/repo",
@@ -57,6 +57,7 @@ export const sampleBundle = (
       stderr_sha256: "2".repeat(64),
       stdout_tail: "",
       stderr_tail: "",
+      redactions: [],
       log_files: {
         stdout: "/repo/.evidence/x/t.stdout.log",
         stderr: "/repo/.evidence/x/t.stderr.log",
@@ -66,6 +67,15 @@ export const sampleBundle = (
   verdict: "conformant",
   reasons: ["all required checks passed"],
   criteria_declared: true,
+  requirement: null,
+  environment: {
+    platform: "darwin",
+    arch: "arm64",
+    lockfiles: {},
+    node_modules_present: false,
+    fingerprint_sha256: "3".repeat(64),
+  },
+  differential: null,
   session: { session_id: "s", provider: "p", model: "m", thinking_level: null },
   tools: { bun: "1.4.0", node: "v26.8.2", cargo: null },
 });

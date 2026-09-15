@@ -109,6 +109,7 @@ describe("computeVerdict", () => {
     stdout_tail: "",
     stderr_tail: "",
     log_files: null,
+    redactions: [],
   });
 
   test("applies precedence: failed, incomplete, conformant, unverified", () => {

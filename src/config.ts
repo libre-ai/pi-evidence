@@ -9,6 +9,15 @@ export const CONFIG_FILE = ".evidence.json";
 export const DEFAULT_OUTPUT_DIR = ".evidence";
 export const DEFAULT_TIMEOUT_SECONDS = 600;
 
+// What the extension does at the end of a turn that changed the tree without
+// producing evidence: nothing, a visible reminder, or a follow-up demand.
+export type GuardPolicy = "off" | "remind" | "require";
+export const GUARD_POLICIES: readonly GuardPolicy[] = [
+  "off",
+  "remind",
+  "require",
+];
+
 export interface CheckSpec {
   readonly id: string;
   readonly command: string;
@@ -21,6 +30,7 @@ export interface EvidenceConfig {
   readonly schema_version: 1;
   readonly checks: readonly CheckSpec[];
   readonly output_dir: string;
+  readonly policy: GuardPolicy;
 }
 
 const ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
@@ -98,7 +108,21 @@ export function parseConfig(value: unknown): Result<EvidenceConfig> {
       `${CONFIG_FILE}: output_dir must be a relative path inside the repository`,
     );
   }
-  return ok({ schema_version: 1, checks, output_dir: outputDir });
+  const policy = value.policy ?? "remind";
+  if (
+    typeof policy !== "string" ||
+    !(GUARD_POLICIES as readonly string[]).includes(policy)
+  ) {
+    return fail(
+      `${CONFIG_FILE}: policy must be one of ${GUARD_POLICIES.join(", ")}`,
+    );
+  }
+  return ok({
+    schema_version: 1,
+    checks,
+    output_dir: outputDir,
+    policy: policy as GuardPolicy,
+  });
 }
 
 export type ConfigLookup =

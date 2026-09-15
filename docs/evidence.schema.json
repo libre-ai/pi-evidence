@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://libre-ai.example/schemas/pi-evidence/evidence.v1.schema.json",
+  "$id": "https://libre-ai.example/schemas/pi-evidence/evidence.v2.schema.json",
   "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "check": {
       "type": "object",
       "additionalProperties": false,
@@ -14,7 +15,97 @@
         "timeout_seconds": { "type": "integer", "minimum": 1 }
       }
     },
-    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "timeout",
+        "aborted",
+        "unavailable",
+        "skipped"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "command",
+        "args",
+        "required",
+        "status",
+        "exit_code",
+        "started_at",
+        "duration_ms",
+        "stdout_sha256",
+        "stderr_sha256",
+        "stdout_tail",
+        "stderr_tail",
+        "log_files",
+        "redactions"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "command": { "type": "string" },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "required": { "type": "boolean" },
+        "status": { "$ref": "#/$defs/status" },
+        "exit_code": { "type": ["integer", "null"] },
+        "started_at": { "type": "string", "format": "date-time" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "stdout_sha256": { "$ref": "#/$defs/sha256" },
+        "stderr_sha256": { "$ref": "#/$defs/sha256" },
+        "stdout_tail": { "type": "string" },
+        "stderr_tail": { "type": "string" },
+        "log_files": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["stdout", "stderr"],
+              "properties": {
+                "stdout": { "type": "string" },
+                "stderr": { "type": "string" }
+              }
+            }
+          ]
+        },
+        "redactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["family", "count"],
+            "properties": {
+              "family": { "type": "string" },
+              "count": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "arch",
+        "lockfiles",
+        "node_modules_present",
+        "fingerprint_sha256"
+      ],
+      "properties": {
+        "platform": { "type": "string" },
+        "arch": { "type": "string" },
+        "lockfiles": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/sha256" }
+        },
+        "node_modules_present": { "type": "boolean" },
+        "fingerprint_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
   },
   "type": "object",
   "additionalProperties": false,
@@ -29,11 +120,14 @@
     "verdict",
     "reasons",
     "criteria_declared",
+    "requirement",
+    "environment",
+    "differential",
     "session",
     "tools"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "id": {
       "type": "string",
       "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7}(?:-[0-9]+)?$"
@@ -75,68 +169,70 @@
         "selected": { "type": "array", "items": { "type": "string" } }
       }
     },
-    "results": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "command",
-          "args",
-          "required",
-          "status",
-          "exit_code",
-          "started_at",
-          "duration_ms",
-          "stdout_sha256",
-          "stderr_sha256",
-          "stdout_tail",
-          "stderr_tail",
-          "log_files"
-        ],
-        "properties": {
-          "id": { "type": "string" },
-          "command": { "type": "string" },
-          "args": { "type": "array", "items": { "type": "string" } },
-          "required": { "type": "boolean" },
-          "status": {
-            "enum": [
-              "passed",
-              "failed",
-              "timeout",
-              "aborted",
-              "unavailable",
-              "skipped"
-            ]
-          },
-          "exit_code": { "type": ["integer", "null"] },
-          "started_at": { "type": "string", "format": "date-time" },
-          "duration_ms": { "type": "integer", "minimum": 0 },
-          "stdout_sha256": { "$ref": "#/$defs/sha256" },
-          "stderr_sha256": { "$ref": "#/$defs/sha256" },
-          "stdout_tail": { "type": "string" },
-          "stderr_tail": { "type": "string" },
-          "log_files": {
-            "oneOf": [
-              { "type": "null" },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["stdout", "stderr"],
-                "properties": {
-                  "stdout": { "type": "string" },
-                  "stderr": { "type": "string" }
-                }
-              }
-            ]
-          }
-        }
-      }
-    },
+    "results": { "type": "array", "items": { "$ref": "#/$defs/result" } },
     "verdict": { "enum": ["conformant", "failed", "incomplete", "unverified"] },
     "reasons": { "type": "array", "items": { "type": "string" } },
     "criteria_declared": { "type": "boolean" },
+    "requirement": { "type": ["string", "null"] },
+    "environment": { "$ref": "#/$defs/environment" },
+    "differential": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "base_ref",
+            "base_head",
+            "base_results",
+            "entries",
+            "base_environment",
+            "dependencies_reused",
+            "note"
+          ],
+          "properties": {
+            "base_ref": { "type": "string" },
+            "base_head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "base_results": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/result" }
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "base_status",
+                  "candidate_status",
+                  "classification"
+                ],
+                "properties": {
+                  "id": { "type": "string" },
+                  "base_status": {
+                    "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/status" }]
+                  },
+                  "candidate_status": { "$ref": "#/$defs/status" },
+                  "classification": {
+                    "enum": [
+                      "regression",
+                      "pre-existing",
+                      "fixed",
+                      "stable",
+                      "not-comparable"
+                    ]
+                  }
+                }
+              }
+            },
+            "base_environment": { "$ref": "#/$defs/environment" },
+            "dependencies_reused": { "type": "boolean" },
+            "note": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    },
     "session": {
       "type": "object",
       "additionalProperties": false,

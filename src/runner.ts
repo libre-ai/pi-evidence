@@ -7,6 +7,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { CheckSpec } from "./config.ts";
 import type { ExecFn } from "./exec.ts";
+import { createScrubber, type Redaction, scrubText } from "./scrub.ts";
 
 export type CheckStatus =
   | "passed"
@@ -29,6 +30,8 @@ export interface CheckResult {
   readonly stderr_sha256: string;
   readonly stdout_tail: string;
   readonly stderr_tail: string;
+  // Secret families redacted from persisted output; hashes cover raw bytes.
+  readonly redactions: readonly Redaction[];
   readonly log_files: {
     readonly stdout: string;
     readonly stderr: string;
@@ -82,6 +85,7 @@ export async function runChecks(
         stdout_tail: "",
         stderr_tail: "",
         log_files: null,
+        redactions: [],
       };
       results.push(skipped);
       options.onProgress?.(skipped);
@@ -91,6 +95,8 @@ export async function runChecks(
     const stderrPath = join(options.logDir, `${check.id}.stderr.log`);
     const stdoutLog = openLog(stdoutPath);
     const stderrLog = openLog(stderrPath);
+    const stdoutScrub = createScrubber();
+    const stderrScrub = createScrubber();
     const stdoutHash = createHash("sha256");
     const stderrHash = createHash("sha256");
     const run = await options.exec(check.command, check.args, {
@@ -99,14 +105,16 @@ export async function runChecks(
       signal: options.signal,
       maxCapturedBytes: tail,
       onStdout: (chunk) => {
-        stdoutLog.write(chunk);
+        stdoutLog.write(stdoutScrub.push(chunk));
         stdoutHash.update(chunk);
       },
       onStderr: (chunk) => {
-        stderrLog.write(chunk);
+        stderrLog.write(stderrScrub.push(chunk));
         stderrHash.update(chunk);
       },
     });
+    stdoutLog.write(stdoutScrub.flush());
+    stderrLog.write(stderrScrub.flush());
     await Promise.all([closeLog(stdoutLog), closeLog(stderrLog)]);
     let status: CheckStatus;
     let exitCode: number | null = null;
@@ -116,8 +124,10 @@ export async function runChecks(
     if (run.ok) {
       exitCode = run.value.code;
       duration = run.value.durationMs;
-      stdoutTail = run.value.stdout;
-      stderrTail = run.value.stderr;
+      // Tails are re-scrubbed as a whole: a secret split across chunks in the
+      // capped capture is still caught here.
+      stdoutTail = scrubText(run.value.stdout).text;
+      stderrTail = scrubText(run.value.stderr).text;
       status = run.value.code === 0 ? "passed" : "failed";
     } else if (run.error === "spawn-failed") {
       status = "unavailable";
@@ -142,6 +152,7 @@ export async function runChecks(
       stdout_tail: stdoutTail,
       stderr_tail: stderrTail,
       log_files: { stdout: stdoutPath, stderr: stderrPath },
+      redactions: [...stdoutScrub.redactions(), ...stderrScrub.redactions()],
     };
     results.push(result);
     options.onProgress?.(result);

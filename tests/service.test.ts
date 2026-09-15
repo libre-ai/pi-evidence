@@ -47,7 +47,11 @@ describe("EvidenceService", () => {
     });
     const config = await service.describeRecipe();
     expect(config.ok && config.value).toContain("critères déclarés : oui");
-    const first = await service.run({ only: [], session });
+    const first = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "t" },
+    });
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.value.bundle.verdict).toBe("conformant");
@@ -93,12 +97,23 @@ describe("EvidenceService", () => {
       { id: "b", command: "evidence-no-such-binary", args: [], required: true },
     ]);
     const service = new EvidenceService({ exec: runProcess, repoRoot: dir });
-    const subset = await service.run({ only: ["a"], session });
+    const subset = await service.run({
+      only: ["a"],
+      session,
+      acceptRecipe: { by: "t" },
+    });
     expect(subset.ok && subset.value.bundle.verdict).toBe("incomplete");
-    const full = await service.run({ only: [], session });
+    const full = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "t" },
+    });
     expect(full.ok && full.value.bundle.verdict).toBe("incomplete");
     expect(full.ok && full.value.bundle.results[1]?.status).toBe("unavailable");
-    expect((await service.run({ only: ["zzz"], session })).ok).toBe(false);
+    expect(
+      (await service.run({ only: ["zzz"], session, acceptRecipe: { by: "t" } }))
+        .ok,
+    ).toBe(false);
   });
 
   test("discovered recipe is unverified at best; no recipe or no git is refused", async () => {
@@ -109,19 +124,27 @@ describe("EvidenceService", () => {
     );
     writeFileSync(join(dir, "bun.lock"), "");
     const service = new EvidenceService({ exec: runProcess, repoRoot: dir });
-    const run = await service.run({ only: [], session });
+    const run = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "t" },
+    });
     expect(run.ok && run.value.bundle.verdict).toBe("unverified");
     expect(run.ok && run.value.bundle.recipe.origin).toBe("discovered");
     expect(run.ok && run.value.bundle.results[0]?.command).toBe("bun");
     const bare = new EvidenceService({ exec: runProcess, repoRoot: gitRepo() });
-    expect((await bare.run({ only: [], session })).ok).toBe(false);
+    expect(
+      (await bare.run({ only: [], session, acceptRecipe: { by: "t" } })).ok,
+    ).toBe(false);
     expect((await bare.status()).ok).toBe(false);
     const plain = mkdtempSync(join(tmpdir(), "evidence-plain-"));
     declared(plain, [
       { id: "a", command: "sh", args: ["-c", "true"], required: true },
     ]);
     const noGit = new EvidenceService({ exec: runProcess, repoRoot: plain });
-    expect((await noGit.run({ only: [], session })).ok).toBe(false);
+    expect(
+      (await noGit.run({ only: [], session, acceptRecipe: { by: "t" } })).ok,
+    ).toBe(false);
     expect((await resolveRepoRoot(runProcess, plain)).ok).toBe(false);
     expect((await resolveRepoRoot(runProcess, join(dir))).ok).toBe(true);
   });
@@ -132,7 +155,11 @@ describe("EvidenceService", () => {
       { id: "a", command: "sh", args: ["-c", "true"], required: true },
     ]);
     const service = new EvidenceService({ exec: runProcess, repoRoot: dir });
-    const first = await service.run({ only: [], session });
+    const first = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "t" },
+    });
     if (!first.ok) throw new Error(first.error);
     const verified = await service.verify(undefined, session);
     expect(verified.ok && verified.value.comparison.outcome).toBe("reproduced");
@@ -153,7 +180,11 @@ describe("EvidenceService", () => {
       },
     ]);
     const service = new EvidenceService({ exec: runProcess, repoRoot: dir });
-    const run = await service.run({ only: [], session });
+    const run = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "t" },
+    });
     expect(run.ok && run.value.bundle.verdict).toBe("incomplete");
     expect(run.ok && run.value.bundle.reasons.at(-1)).toContain(
       "working tree changed",
@@ -168,6 +199,7 @@ describe("EvidenceService", () => {
       only: [],
       session,
       signal: controller.signal,
+      acceptRecipe: { by: "t" },
     });
     expect(
       aborted.ok && aborted.value.bundle.results.map((r) => r.status),

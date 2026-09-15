@@ -47,3 +47,12 @@ describe("runProcess", () => {
     ).toEqual({ ok: false, error: "aborted" });
   });
 });
+
+describe("runProcess stdin", () => {
+  test("feeds bytes to the child's standard input", async () => {
+    const result = await runProcess("cat", [], {
+      stdin: new TextEncoder().encode("piped\n"),
+    });
+    expect(result.ok && result.value.stdout).toBe("piped\n");
+  });
+});
