@@ -1,0 +1,56 @@
+// SPDX-FileCopyrightText: 2026 Libre AI contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { type CheckSpec, DEFAULT_TIMEOUT_SECONDS } from "./config.ts";
+
+export const DISCOVERED_SCRIPTS = [
+  "lint",
+  "typecheck",
+  "test",
+  "check",
+] as const;
+
+// Discovered checks are never `required`: nobody declared them as criteria,
+// so they can only support an "unverified / no problem detected" verdict.
+export async function discoverChecks(repoRoot: string): Promise<CheckSpec[]> {
+  const checks: CheckSpec[] = [];
+  const packageFile = join(repoRoot, "package.json");
+  if (existsSync(packageFile)) {
+    let scripts: Record<string, unknown> = {};
+    try {
+      const parsed: unknown = JSON.parse(await readFile(packageFile, "utf8"));
+      if (typeof parsed === "object" && parsed !== null) {
+        const candidate = (parsed as { scripts?: unknown }).scripts;
+        if (typeof candidate === "object" && candidate !== null) {
+          scripts = candidate as Record<string, unknown>;
+        }
+      }
+    } catch {
+      scripts = {};
+    }
+    const runner = existsSync(join(repoRoot, "bun.lock")) ? "bun" : "npm";
+    for (const name of DISCOVERED_SCRIPTS) {
+      if (typeof scripts[name] !== "string") continue;
+      checks.push({
+        id: name,
+        command: runner,
+        args: ["run", name],
+        required: false,
+        timeout_seconds: DEFAULT_TIMEOUT_SECONDS,
+      });
+    }
+  }
+  if (existsSync(join(repoRoot, "Cargo.toml"))) {
+    checks.push({
+      id: "cargo-test",
+      command: "cargo",
+      args: ["test"],
+      required: false,
+      timeout_seconds: DEFAULT_TIMEOUT_SECONDS,
+    });
+  }
+  return checks;
+}

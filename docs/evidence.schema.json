@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://libre-ai.example/schemas/pi-evidence/evidence.v1.schema.json",
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "command", "args", "required", "timeout_seconds"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+        "command": { "type": "string", "pattern": "^[A-Za-z0-9._+-]+$" },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "required": { "type": "boolean" },
+        "timeout_seconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "created_at",
+    "repository_root",
+    "revision",
+    "recipe",
+    "results",
+    "verdict",
+    "reasons",
+    "criteria_declared",
+    "session",
+    "tools"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7}(?:-[0-9]+)?$"
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "repository_root": { "type": "string", "minLength": 1 },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head",
+        "branch",
+        "dirty",
+        "changed_files",
+        "status_sha256",
+        "diff_sha256"
+      ],
+      "properties": {
+        "head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "branch": { "type": ["string", "null"] },
+        "dirty": { "type": "boolean" },
+        "changed_files": { "type": "array", "items": { "type": "string" } },
+        "status_sha256": { "$ref": "#/$defs/sha256" },
+        "diff_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "hash", "checks", "selected"],
+      "properties": {
+        "origin": { "enum": ["declared", "discovered"] },
+        "hash": { "$ref": "#/$defs/sha256" },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/check" }
+        },
+        "selected": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "command",
+          "args",
+          "required",
+          "status",
+          "exit_code",
+          "started_at",
+          "duration_ms",
+          "stdout_sha256",
+          "stderr_sha256",
+          "stdout_tail",
+          "stderr_tail",
+          "log_files"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "command": { "type": "string" },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "required": { "type": "boolean" },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "timeout",
+              "aborted",
+              "unavailable",
+              "skipped"
+            ]
+          },
+          "exit_code": { "type": ["integer", "null"] },
+          "started_at": { "type": "string", "format": "date-time" },
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "stdout_sha256": { "$ref": "#/$defs/sha256" },
+          "stderr_sha256": { "$ref": "#/$defs/sha256" },
+          "stdout_tail": { "type": "string" },
+          "stderr_tail": { "type": "string" },
+          "log_files": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["stdout", "stderr"],
+                "properties": {
+                  "stdout": { "type": "string" },
+                  "stderr": { "type": "string" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "verdict": { "enum": ["conformant", "failed", "incomplete", "unverified"] },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "criteria_declared": { "type": "boolean" },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "provider", "model", "thinking_level"],
+      "properties": {
+        "session_id": { "type": "string" },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "thinking_level": { "type": ["string", "null"] }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "null"] }
+    }
+  }
+}
