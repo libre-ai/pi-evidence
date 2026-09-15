@@ -1,6 +1,6 @@
 {
   "name": "@libre-ai/pi-evidence",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pi Coding Agent package: run a repository's declared checks and record evidence bound to the revision, the recipe and the model identity, with a verdict that separates conformance from 'no problem detected'.",
   "license": "Apache-2.0",
   "type": "module",

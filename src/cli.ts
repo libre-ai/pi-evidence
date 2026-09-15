@@ -12,7 +12,7 @@ export const USAGE = [
   "",
   "  run       [--only a,b] [--requirement REF] [--base REF] [--accept-recipe --by NAME]",
   "  gate      same as run; exit 0 only when the verdict is conformant",
-  "  verify    [ID] [--require-reproduced] [--if-present]",
+  "  verify    [ID] [--require-reproduced] [--if-present] | --ci (evidence-only commit protocol)",
   "  compare   --base REF (run with a base/candidate differential)",
   "  status | show [ID] | config",
   "  accept    --by NAME              accept the current recipe (pin it)",
@@ -43,6 +43,7 @@ const BOOLEAN_FLAGS = new Set([
   "accept-recipe",
   "require-reproduced",
   "if-present",
+  "ci",
   "force",
   "dry-run",
   "help",
@@ -214,6 +215,27 @@ export async function runCli(
       return 0;
     }
     case "verify": {
+      if (parsed.flags.ci === true) {
+        const result = await service.verifyForCi(sessionFromEnv(env));
+        if (!result.ok) return failWith(result.error);
+        if (result.value.kind === "no-reference") {
+          emit(`aucune référence à rejouer : ${result.value.reason}`, {
+            skipped: true,
+            reason: result.value.reason,
+          });
+          return 0;
+        }
+        const c = result.value.comparison;
+        emit(
+          `${c.outcome.toUpperCase()} (${result.value.protocol}) — référence ${c.reference_id}, rejeu ${c.candidate_id}${c.differences.length === 0 ? "" : `\n- ${c.differences.join("\n- ")}`}`,
+          {
+            protocol: result.value.protocol,
+            comparison: c,
+            bundle: result.value.bundle,
+          },
+        );
+        return c.outcome === "reproduced" ? 0 : 1;
+      }
       const id = parsed.positional[0];
       if (parsed.flags["if-present"] === true) {
         const existing = await service.load(id);

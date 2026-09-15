@@ -30,5 +30,5 @@ jobs:
         run: bun bin/evidence.ts accept --by "ci:${{ github.run_id }}"
       - name: Gate on the recipe (conformant required)
         run: bun bin/evidence.ts gate --json
-      - name: Compare with the committed bundle for this revision, if any
-        run: bun bin/evidence.ts verify --json --require-reproduced --if-present
+      - name: Compare with the committed evidence (evidence-only commit protocol)
+        run: bun bin/evidence.ts verify --ci --json

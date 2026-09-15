@@ -20,7 +20,7 @@ export const sampleBundle = (
   schema_version: 2,
   id,
   created_at: "2026-09-15T12:00:00.000Z",
-  repository_root: "/repo",
+  repository: { name: "repo", origin: null },
   revision: {
     head: "abcdef0123456789abcdef0123456789abcdef01",
     branch: "main",
