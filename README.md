@@ -153,6 +153,12 @@ lui-même. Sans référence, l'étape est marquée ignorée ; une comparaison
 `diverged` ou `stale` fait échouer le job. Ce dépôt applique ce protocole à
 lui-même (`.gitignore` : dossiers et attestations suivis, journaux locaux).
 
+Avec un merge par squash, les commits de la branche disparaissent de `main` :
+les dossiers commités y restent des enregistrements historiques dont la
+révision est celle du head de la pull request, et la preuve de rejeu vit dans
+les checks de cette pull request ("Replay declared recipe", requis). Sur
+`main`, `verify --ci` répond « aucune référence » : c'est attendu.
+
 ## Sécurité
 
 - Commandes et arguments en tableaux, `command` limité à un nom d'exécutable ;
