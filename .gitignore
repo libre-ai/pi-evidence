@@ -1,5 +1,8 @@
 node_modules/
 dist/
 coverage/
-.evidence/
 *.tgz
+# Evidence bundles, attestations and acceptance sidecars are committed;
+# check logs (directories) stay local.
+.evidence/*
+!.evidence/*.json

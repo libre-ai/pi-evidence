@@ -15,12 +15,23 @@ export interface Comparison {
 // "stale" means the two bundles were not produced on the same tree or recipe,
 // so their results are not comparable; it is reported, never silently upgraded
 // to a reproduction.
+export interface CompareOptions {
+  // Evidence-only commit protocol: the candidate HEAD is the reference HEAD
+  // plus a commit that only adds evidence files, so the trees under test are
+  // identical and the HEAD difference is expected, not a staleness signal.
+  readonly headMayDiffer?: boolean | undefined;
+}
+
 export function compareBundles(
   reference: EvidenceBundle,
   candidate: EvidenceBundle,
+  options: CompareOptions = {},
 ): Comparison {
   const differences: string[] = [];
-  if (reference.revision.head !== candidate.revision.head)
+  if (
+    options.headMayDiffer !== true &&
+    reference.revision.head !== candidate.revision.head
+  )
     differences.push("HEAD differs");
   if (reference.revision.diff_sha256 !== candidate.revision.diff_sha256)
     differences.push("working tree diff differs");

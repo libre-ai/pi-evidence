@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import type { CheckSpec } from "./config.ts";
 import type { ExecFn } from "./exec.ts";
 import { createScrubber, type Redaction, scrubText } from "./scrub.ts";
@@ -46,6 +46,9 @@ export interface RunOptions {
   readonly now?: (() => Date) | undefined;
   readonly onProgress?: ((result: CheckResult) => void) | undefined;
   readonly tailBytes?: number | undefined;
+  // When set, log paths are stored relative to this directory so a bundle
+  // never carries a machine-local absolute path.
+  readonly logRoot?: string | undefined;
 }
 
 const DEFAULT_TAIL = 2048;
@@ -151,7 +154,13 @@ export async function runChecks(
       stderr_sha256: stderrHash.digest("hex"),
       stdout_tail: stdoutTail,
       stderr_tail: stderrTail,
-      log_files: { stdout: stdoutPath, stderr: stderrPath },
+      log_files:
+        options.logRoot === undefined
+          ? { stdout: stdoutPath, stderr: stderrPath }
+          : {
+              stdout: relative(options.logRoot, stdoutPath),
+              stderr: relative(options.logRoot, stderrPath),
+            },
       redactions: [...stdoutScrub.redactions(), ...stderrScrub.redactions()],
     };
     results.push(result);

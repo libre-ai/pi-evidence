@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   type AcceptanceDecision,
   type Attachment,
@@ -148,6 +148,28 @@ export class EvidenceService {
     return signer.ok ? signer.value : null;
   }
 
+  // Identity, never a path: the origin URL with any embedded credentials
+  // stripped, or null when the repository has no origin remote.
+  private async repositoryIdentity(): Promise<{
+    name: string;
+    origin: string | null;
+  }> {
+    const remote = await this.deps.exec(
+      "git",
+      ["remote", "get-url", "origin"],
+      {
+        cwd: this.deps.repoRoot,
+        timeoutMs: 30_000,
+      },
+    );
+    let origin: string | null = null;
+    if (remote.ok && remote.value.code === 0) {
+      origin = remote.value.stdout.trim().replace(/\/\/[^@/]+@/, "//");
+      if (origin === "") origin = null;
+    }
+    return { name: basename(this.deps.repoRoot), origin };
+  }
+
   private verifier(): Verifier | null {
     const allowed = (this.deps.env ?? process.env).EVIDENCE_ALLOWED_SIGNERS;
     if (allowed === undefined || allowed === "") return null;
@@ -240,6 +262,7 @@ export class EvidenceService {
       exec: this.deps.exec,
       repoRoot: this.deps.repoRoot,
       logDir: join(outputDir, id),
+      logRoot: outputDir,
       signal: request.signal,
       now: () => this.now(),
       onProgress: request.onProgress,
@@ -255,6 +278,7 @@ export class EvidenceService {
         candidateResults: results,
         candidateEnvironment: environment,
         logDir: join(outputDir, id),
+        logRoot: outputDir,
         signal: request.signal,
         now: () => this.now(),
       });
@@ -302,7 +326,7 @@ export class EvidenceService {
       schema_version: 2,
       id,
       created_at: createdAt.toISOString(),
-      repository_root: this.deps.repoRoot,
+      repository: await this.repositoryIdentity(),
       revision: revision.value,
       recipe: {
         origin: recipe.value.origin,
@@ -427,6 +451,101 @@ export class EvidenceService {
     if (!rerun.ok) return rerun;
     return ok({
       comparison: compareBundles(reference.value, rerun.value.bundle),
+      bundle: rerun.value.bundle,
+    });
+  }
+
+  // CI protocol. A bundle cannot be committed inside the revision it attests,
+  // so evidence arrives in a follow-up commit that touches only the output
+  // directory. When HEAD is such a commit, its parent's bundles are the
+  // reference and the trees under test are identical by construction.
+  async verifyForCi(
+    session: SessionIdentity,
+    signal?: AbortSignal,
+  ): Promise<
+    Result<
+      | { kind: "no-reference"; reason: string }
+      | {
+          kind: "compared";
+          protocol: "same-head" | "evidence-only-commit";
+          comparison: Comparison;
+          bundle: EvidenceBundle;
+        }
+    >
+  > {
+    const recipe = await resolveRecipe(this.deps.repoRoot);
+    if (!recipe.ok) return recipe;
+    const dir = join(this.deps.repoRoot, recipe.value.output_dir);
+    const head = await this.deps.exec("git", ["rev-parse", "HEAD"], {
+      cwd: this.deps.repoRoot,
+      timeoutMs: 30_000,
+    });
+    if (!head.ok || head.value.code !== 0) return fail("cannot resolve HEAD");
+    const headSha = head.value.stdout.trim();
+    // Only bundles tracked by git can be a reference: a bundle written by
+    // this very job (the gate step) must never be compared with itself.
+    const tracked = await this.deps.exec(
+      "git",
+      ["ls-files", "-z", "--", recipe.value.output_dir],
+      { cwd: this.deps.repoRoot, timeoutMs: 30_000 },
+    );
+    const trackedFiles = new Set(
+      tracked.ok && tracked.value.code === 0
+        ? tracked.value.stdout.split("\0").filter((f) => f !== "")
+        : [],
+    );
+    const bundles: EvidenceBundle[] = [];
+    for (const id of await listBundleIds(dir)) {
+      if (!trackedFiles.has(`${recipe.value.output_dir}/${id}.json`)) continue;
+      const loaded = await loadBundle(bundleFile(dir, id));
+      if (loaded.ok) bundles.push(loaded.value);
+    }
+    let protocol: "same-head" | "evidence-only-commit" = "same-head";
+    let reference = bundles.filter((b) => b.revision.head === headSha).at(-1);
+    if (reference === undefined) {
+      const changed = await this.deps.exec(
+        "git",
+        ["diff", "--name-only", "HEAD~1", "HEAD"],
+        { cwd: this.deps.repoRoot, timeoutMs: 30_000 },
+      );
+      const parent = await this.deps.exec("git", ["rev-parse", "HEAD~1"], {
+        cwd: this.deps.repoRoot,
+        timeoutMs: 30_000,
+      });
+      const files =
+        changed.ok && changed.value.code === 0
+          ? changed.value.stdout.split("\n").filter((f) => f !== "")
+          : [];
+      const prefix = `${recipe.value.output_dir}/`;
+      const evidenceOnly =
+        files.length > 0 && files.every((f) => f.startsWith(prefix));
+      if (evidenceOnly && parent.ok && parent.value.code === 0) {
+        const parentSha = parent.value.stdout.trim();
+        reference = bundles.filter((b) => b.revision.head === parentSha).at(-1);
+        protocol = "evidence-only-commit";
+      }
+    }
+    if (reference === undefined) {
+      return ok({
+        kind: "no-reference",
+        reason: `no committed bundle for ${headSha.slice(0, 7)} (nor for its parent through an evidence-only commit)`,
+      });
+    }
+    const rerun = await this.run({
+      only:
+        reference.recipe.selected.length === reference.recipe.checks.length
+          ? []
+          : reference.recipe.selected,
+      session,
+      signal,
+    });
+    if (!rerun.ok) return rerun;
+    return ok({
+      kind: "compared",
+      protocol,
+      comparison: compareBundles(reference, rerun.value.bundle, {
+        headMayDiffer: protocol === "evidence-only-commit",
+      }),
       bundle: rerun.value.bundle,
     });
   }

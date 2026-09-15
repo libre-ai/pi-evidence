@@ -30,7 +30,12 @@ export interface EvidenceBundle {
   readonly schema_version: 2;
   readonly id: string;
   readonly created_at: string;
-  readonly repository_root: string;
+  // Repository identity without any machine-local path: bundles are meant to
+  // be committed and read on other machines.
+  readonly repository: {
+    readonly name: string;
+    readonly origin: string | null;
+  };
   readonly revision: RevisionBinding;
   readonly recipe: {
     readonly origin: RecipeOrigin;
@@ -106,7 +111,8 @@ export function parseBundle(value: unknown): Result<EvidenceBundle> {
   if (
     typeof value.id !== "string" ||
     typeof value.created_at !== "string" ||
-    typeof value.repository_root !== "string" ||
+    !isRecord(value.repository) ||
+    typeof value.repository.name !== "string" ||
     !isRecord(value.revision) ||
     typeof value.revision.head !== "string" ||
     !isRecord(value.recipe) ||

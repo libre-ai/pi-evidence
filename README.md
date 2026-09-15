@@ -1,6 +1,6 @@
 # pi-evidence — recette et preuves de fonctionnement pour Pi
 
-Package Pi Coding Agent, avec CLI et job CI, qui exécute les contrôles
+Package Pi Coding Agent (version 0.2.0), avec CLI et job CI, qui exécute les contrôles
 **déclarés** d'un dépôt et enregistre un dossier de preuves lié à la révision
 exacte, à l'état de l'arbre, à l'environnement, à la recette et à l'identité du
 modèle de la session, attesté au format in-toto et signé quand une clé est
@@ -110,6 +110,7 @@ du candidat ; le différentiel dit si l'échec est introduit ou hérité.
 
 ## Ce qui est lié dans un dossier (format v2)
 
+- Dépôt : nom et URL d'origine (identifiants retirés), jamais un chemin machine.
 - Révision : `HEAD`, branche, fichiers modifiés et non suivis, empreintes
   SHA-256 de `git diff HEAD` et de `git status` (répertoire de sortie exclu).
 - Environnement : plateforme, architecture, empreintes des lockfiles,
@@ -138,9 +139,19 @@ Schéma : `docs/evidence.schema.json` (validé par les tests).
 
 `.github/workflows/evidence-replay.yml` : sur chaque pull request, accepte la
 recette commitée pour le run, exige `conformant` (`evidence gate`), puis
-compare avec le dossier commité de la même révision s'il existe
-(`evidence verify --require-reproduced --if-present`). La preuve locale doit
-survivre à une machine indépendante.
+rejoue et compare avec la preuve **commitée** (`evidence verify --ci`).
+
+Un dossier ne peut pas être commité dans la révision qu'il atteste (le commit
+changerait `HEAD`). Protocole de **commit de preuves** : après le commit de
+code X, exécuter `evidence run`, puis commiter uniquement `.evidence/*.json`
+(dossier, attestation, sidecar) dans un commit X+1 qui ne touche rien
+d'autre. En CI, quand `HEAD` est un tel commit, les dossiers de son parent X
+sont la référence : les arbres sous test sont identiques par construction,
+seul `HEAD` diffère. Seuls les dossiers suivis par git comptent comme
+référence : le dossier écrit par le job lui-même n'est jamais comparé à
+lui-même. Sans référence, l'étape est marquée ignorée ; une comparaison
+`diverged` ou `stale` fait échouer le job. Ce dépôt applique ce protocole à
+lui-même (`.gitignore` : dossiers et attestations suivis, journaux locaux).
 
 ## Sécurité
 

@@ -46,6 +46,7 @@ export interface DifferentialOptions {
   readonly candidateResults: readonly CheckResult[];
   readonly candidateEnvironment: EnvironmentFingerprint;
   readonly logDir: string;
+  readonly logRoot?: string | undefined;
   readonly signal?: AbortSignal | undefined;
   readonly now?: (() => Date) | undefined;
 }
@@ -178,6 +179,7 @@ export async function runDifferential(
       exec,
       repoRoot: worktree,
       logDir: join(options.logDir, "base"),
+      logRoot: options.logRoot,
       signal: options.signal,
       now: options.now,
     });
