@@ -261,6 +261,19 @@ export class EvidenceService {
       if (!diff.ok) return fail(`differential: ${diff.error}`);
       differential = diff.value;
     }
+    // Dogfooding finding: an output directory that git does not ignore is
+    // seen by checks that scan untracked files (REUSE, secret scanners) and
+    // makes the repository fail its own gate. Said, not hidden.
+    const ignored = await this.deps.exec(
+      "git",
+      ["check-ignore", "-q", recipe.value.output_dir],
+      { cwd: this.deps.repoRoot, timeoutMs: 30_000 },
+    );
+    if (ignored.ok && ignored.value.code !== 0) {
+      reasons.push(
+        `${recipe.value.output_dir}/ is not ignored by git: checks that scan untracked files may fail because of the evidence itself (add it to .gitignore)`,
+      );
+    }
     // The tree is bound again after the run: a check that mutates the
     // working tree (formatter, generated file) invalidates the evidence.
     const after = await bindRevision(this.deps.exec, this.deps.repoRoot, [

@@ -231,3 +231,43 @@ describe("service v2", () => {
     expect((await service.attach("nope", "report", report)).ok).toBe(false);
   });
 });
+
+describe("output directory ignore warning", () => {
+  test("warns when .evidence is not git-ignored and stays silent when it is", async () => {
+    const dir = gitRepo();
+    writeFileSync(
+      join(dir, ".evidence.json"),
+      JSON.stringify({
+        schema_version: 1,
+        checks: [
+          { id: "t", command: "sh", args: ["-c", "true"], required: true },
+        ],
+      }),
+    );
+    const service = new EvidenceService({
+      exec: runProcess,
+      repoRoot: dir,
+      env: {},
+    });
+    const warned = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "t" },
+    });
+    expect(
+      warned.ok &&
+        warned.value.bundle.reasons.some((r) =>
+          r.includes("not ignored by git"),
+        ),
+    ).toBe(true);
+    expect(warned.ok && warned.value.bundle.verdict).toBe("conformant");
+    writeFileSync(join(dir, ".gitignore"), ".evidence/\n");
+    const quiet = await service.run({ only: [], session });
+    expect(
+      quiet.ok &&
+        quiet.value.bundle.reasons.some((r) =>
+          r.includes("not ignored by git"),
+        ),
+    ).toBe(false);
+  });
+});

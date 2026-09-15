@@ -19,5 +19,7 @@ passe à 2 (champs ajoutés ; lecteur v1 accepté en lecture).
 | H Garde de tour | `extensions/evidence.ts` | `agent_end` : arbre modifié sans dossier correspondant → rappel (`remind`) ou message de suite (`require`) ; `policy` dans `.evidence.json` | tests faux `pi` ; recette |
 | I Dogfooding | `docs/DOGFOODING.md` | runs réels sur trois dépôts, distribution des verdicts, temps, échecs réels | dossiers produits |
 
+État au 2026-09-15 : A, B, C, E, F, G, H livrés et recettés (`docs/RECETTE-2.md`) ; D livré comme fichier de workflow, commandes rejouées localement, job non exécuté faute de dépôt distant ; I fait (`docs/DOGFOODING.md`).
+
 Hors périmètre (décision owner) : dépôt public de destination, publication des
 preuves de la forge, Sigstore sans clé en CI (dépend d'un dépôt GitHub).

@@ -113,3 +113,24 @@ describe("bundle", () => {
     expect(parseBundle({ ...sampleBundle(), verdict: "maybe" }).ok).toBe(false);
   });
 });
+
+describe("version 1 bundles", () => {
+  test("are read with explicit empty v2 fields", () => {
+    const v1 = {
+      ...sampleBundle(),
+      schema_version: 1,
+      results: [{ ...sampleBundle().results[0], redactions: undefined }],
+    } as unknown as Record<string, unknown>;
+    delete v1.environment;
+    delete v1.differential;
+    delete v1.requirement;
+    const parsed = parseBundle(v1);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.schema_version).toBe(2);
+    expect(parsed.value.results[0]?.redactions).toEqual([]);
+    expect(parsed.value.environment.platform).toBe("unknown");
+    expect(parsed.value.differential).toBeNull();
+    expect(parsed.value.requirement).toBeNull();
+  });
+});

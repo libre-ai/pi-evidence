@@ -120,6 +120,30 @@ export function parseBundle(value: unknown): Result<EvidenceBundle> {
   ) {
     return fail("bundle: malformed record");
   }
+  // A version-1 bundle predates environment, differential, requirement and
+  // redaction fields: read it with explicit empty values so old evidence
+  // stays listable, never silently treated as a version-2 record.
+  if (value.schema_version === 1) {
+    const results = (value.results as Record<string, unknown>[]).map((r) => ({
+      ...r,
+      redactions: Array.isArray(r.redactions) ? r.redactions : [],
+    }));
+    return ok({
+      ...(value as unknown as EvidenceBundle),
+      schema_version: 2,
+      results: results as unknown as EvidenceBundle["results"],
+      requirement:
+        typeof value.requirement === "string" ? value.requirement : null,
+      environment: {
+        platform: "unknown",
+        arch: "unknown",
+        lockfiles: {},
+        node_modules_present: false,
+        fingerprint_sha256: "0".repeat(64),
+      },
+      differential: null,
+    });
+  }
   return ok(value as unknown as EvidenceBundle);
 }
 

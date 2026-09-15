@@ -155,6 +155,9 @@ survivre à une machine indépendante.
 - Aucune télémétrie, aucun accès réseau propre au package.
 - `.evidence/` n'est pas ajouté à `.gitignore` automatiquement : décider quoi
   commiter (le dossier et l'attestation, pas nécessairement les journaux).
+  Tant qu'il n'est pas ignoré, un contrôle qui scanne les fichiers non suivis
+  (REUSE, scan de secrets) échoue à cause de la preuve elle-même ; le run le
+  signale dans ses raisons.
 
 ## Limites
 
