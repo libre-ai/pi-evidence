@@ -1,0 +1,7 @@
+[install]
+exact = true
+minimumReleaseAge = 259200
+
+[test]
+coverage = true
+coverageThreshold = 0.9
