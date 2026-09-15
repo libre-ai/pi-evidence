@@ -7,7 +7,7 @@ retirés après lecture ; seuls les résultats sont conservés ici.
 | Dépôt | Recette | Verdict | Contrôles | Observation |
 | --- | --- | --- | --- | --- |
 | `pi-evidence` (ce dépôt) | déclarée, 3 requis + `reuse lint` | `conformant` | lint 145 ms, typecheck 430 ms, test 7 579 ms, licenses 559 ms | attestation écrite ; lockfile `bun.lock` empreinté |
-| `product-research` (dépôt privé, arbre avec WIP) | découverte : `bun run check` | `failed` puis `unverified` | `check` 1 687 ms (échec) puis 3 451 ms (succès) | **défaut trouvé** : le premier run a échoué sur `check:licenses` parce que `.evidence/` (non ignoré par git) est vu par `reuse lint` ; avec `.evidence/` ignoré, le gate passe. Verdict `unverified` : aucun critère déclaré |
+| dépôt privé de recherche (nom retiré du package, arbre avec WIP) | découverte : `bun run check` | `failed` puis `unverified` | `check` 1 687 ms (échec) puis 3 451 ms (succès) | **défaut trouvé** : le premier run a échoué sur `check:licenses` parce que `.evidence/` (non ignoré par git) est vu par `reuse lint` ; avec `.evidence/` ignoré, le gate passe. Verdict `unverified` : aucun critère déclaré |
 | `knowledge` (flotte) | découverte : `bun run check` | `unverified` | `check` 939 ms | `node_modules` présent ; le contrôle composite passe ; aucun critère déclaré |
 
 ## Enseignements
