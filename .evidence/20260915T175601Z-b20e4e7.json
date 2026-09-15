@@ -1,0 +1,183 @@
+{
+  "schema_version": 2,
+  "id": "20260915T175601Z-b20e4e7",
+  "created_at": "2026-09-15T17:56:01.168Z",
+  "repository": {
+    "name": "pi-evidence",
+    "origin": "https://github.com/libre-ai/pi-evidence.git"
+  },
+  "revision": {
+    "head": "b20e4e7b31fd90dac94690d9d81354999abe73d6",
+    "branch": "feat/evidence-only-commit-protocol",
+    "dirty": false,
+    "changed_files": [],
+    "status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "recipe": {
+    "origin": "declared",
+    "hash": "291cbc74b8ac630c5dda1e652a313852405b45182b4039010047d7175a4ad85e",
+    "checks": [
+      {
+        "id": "lint",
+        "command": "bun",
+        "args": [
+          "run",
+          "lint"
+        ],
+        "required": true,
+        "timeout_seconds": 600
+      },
+      {
+        "id": "typecheck",
+        "command": "bun",
+        "args": [
+          "run",
+          "typecheck"
+        ],
+        "required": true,
+        "timeout_seconds": 600
+      },
+      {
+        "id": "test",
+        "command": "bun",
+        "args": [
+          "test"
+        ],
+        "required": true,
+        "timeout_seconds": 900
+      },
+      {
+        "id": "licenses",
+        "command": "reuse",
+        "args": [
+          "lint"
+        ],
+        "required": false,
+        "timeout_seconds": 600
+      }
+    ],
+    "selected": [
+      "lint",
+      "typecheck",
+      "test",
+      "licenses"
+    ]
+  },
+  "results": [
+    {
+      "id": "lint",
+      "command": "bun",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "required": true,
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-09-15T17:56:01.169Z",
+      "duration_ms": 119,
+      "stdout_sha256": "7548f4c12626a1f696505a84d17324e53fee48c4b244419b3b48090f39089e9e",
+      "stderr_sha256": "15762c5f8e92156537afcc6d6d26c4d5c54b9e7b1c41e0ebe1c508d3431eefa7",
+      "stdout_tail": "\u001b[0m\u001b[34mChecked 53 files in 40\u001b[0m\u001b[0m\u001b[2m\u001b[34mms\u001b[0m\u001b[0m\u001b[34m.\u001b[0m\u001b[0m\u001b[34m No fixes applied.\u001b[0m\n",
+      "stderr_tail": "$ biome ci .\n",
+      "log_files": {
+        "stdout": "20260915T175601Z-b20e4e7/lint.stdout.log",
+        "stderr": "20260915T175601Z-b20e4e7/lint.stderr.log"
+      },
+      "redactions": []
+    },
+    {
+      "id": "typecheck",
+      "command": "bun",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "required": true,
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-09-15T17:56:01.288Z",
+      "duration_ms": 409,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "70685b4df7789c854b9e1ceab7d78a6d0f9a0831c11eb0010b7b5fdbe0e50c39",
+      "stdout_tail": "",
+      "stderr_tail": "$ tsc --noEmit -p tsconfig.json\n",
+      "log_files": {
+        "stdout": "20260915T175601Z-b20e4e7/typecheck.stdout.log",
+        "stderr": "20260915T175601Z-b20e4e7/typecheck.stderr.log"
+      },
+      "redactions": []
+    },
+    {
+      "id": "test",
+      "command": "bun",
+      "args": [
+        "test"
+      ],
+      "required": true,
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-09-15T17:56:01.697Z",
+      "duration_ms": 8964,
+      "stdout_sha256": "6db4b75047eb688350b34f526ffdd8a3772672e722ddc36185bcf1243f668a4e",
+      "stderr_sha256": "0ce980de90f03799e7fddfbc5206141c12902671a402d669dc2ab5ad1606119d",
+      "stdout_tail": "bun test v1.4.0-canary.1 (57f349f63)\n",
+      "stderr_tail": "------------------------|---------|---------|-------------------\nFile                    | % Funcs | % Lines | Uncovered Line #s\n------------------------|---------|---------|-------------------\nAll files               |  100.00 |   98.90 |\n extensions/evidence.ts |  100.00 |   97.53 | 68-70,194,204-205,236,257-258\n src/acceptance.ts      |  100.00 |   96.97 | 62-63,96-97\n src/attestation.ts     |  100.00 |   98.74 | 67,214-215\n src/binding.ts         |  100.00 |   98.85 | \n src/bundle.ts          |  100.00 |   98.00 | 85-86\n src/cli.ts             |  100.00 |   96.13 | 130-138,248\n src/compare.ts         |  100.00 |  100.00 | \n src/config.ts          |  100.00 |   96.36 | 115-118\n src/differential.ts    |  100.00 |   99.34 | \n src/discovery.ts       |  100.00 |  100.00 | \n src/environment.ts     |  100.00 |   98.51 | \n src/exec.ts            |  100.00 |  100.00 | \n src/init.ts            |  100.00 |  100.00 | \n src/prune.ts           |  100.00 |   98.08 | \n src/recipe.ts          |  100.00 |  100.00 | \n src/result.ts          |  100.00 |  100.00 | \n src/runner.ts          |  100.00 |  100.00 | \n src/scrub.ts           |  100.00 |  100.00 | \n src/service.ts         |  100.00 |  100.00 | \n src/signer.ts          |  100.00 |  100.00 | \n src/trust.ts           |  100.00 |   97.33 | 94-95\n src/verdict.ts         |  100.00 |  100.00 | \n------------------------|---------|---------|-------------------\n\n 103 pass\n 0 fail\n 661 expect() calls\nRan 103 tests across 24 files. [8.96s]\n",
+      "log_files": {
+        "stdout": "20260915T175601Z-b20e4e7/test.stdout.log",
+        "stderr": "20260915T175601Z-b20e4e7/test.stderr.log"
+      },
+      "redactions": []
+    },
+    {
+      "id": "licenses",
+      "command": "reuse",
+      "args": [
+        "lint"
+      ],
+      "required": false,
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-09-15T17:56:10.661Z",
+      "duration_ms": 450,
+      "stdout_sha256": "acc23ca833a378307e67cf4b874482bd82d61f3e4c7821bd28d631b922ec69a8",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_tail": "# SUMMARY\n\n* Bad licenses: 0\n* Deprecated licenses: 0\n* Licenses without file extension: 0\n* Missing licenses: 0\n* Unused licenses: 0\n* Used licenses: Apache-2.0\n* Read errors: 0\n* Invalid SPDX License Expressions: 0\n* Files with copyright information: 74 / 74\n* Files with license information: 74 / 74\n\nCongratulations! Your project is compliant with version 3.3 of the REUSE Specification :-)\n",
+      "stderr_tail": "",
+      "log_files": {
+        "stdout": "20260915T175601Z-b20e4e7/licenses.stdout.log",
+        "stderr": "20260915T175601Z-b20e4e7/licenses.stderr.log"
+      },
+      "redactions": []
+    }
+  ],
+  "verdict": "conformant",
+  "reasons": [
+    "all required checks passed",
+    ".evidence/ is not ignored by git: checks that scan untracked files may fail because of the evidence itself (add it to .gitignore)"
+  ],
+  "criteria_declared": true,
+  "requirement": "pi-evidence#1",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "lockfiles": {
+      "bun.lock": "1fdd99c7ebb99fbfbd4f0ff6a3f113be0feac5105370ff83cac62e7e2d9021ac"
+    },
+    "node_modules_present": true,
+    "fingerprint_sha256": "a91921eb3eeb2aaf17fc1630563e1a09177453626a6d77b2748a852133eb7efe"
+  },
+  "differential": null,
+  "session": {
+    "session_id": "dev",
+    "provider": "cli",
+    "model": "none",
+    "thinking_level": null
+  },
+  "tools": {
+    "bun": "1.4.0",
+    "node": "v26.8.2",
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)"
+  }
+}
