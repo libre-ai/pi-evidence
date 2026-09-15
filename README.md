@@ -28,7 +28,7 @@ Profil isolé ou profil courant, au choix :
 
 ```sh
 pi install /chemin/absolu/vers/pi-evidence      # par chemin local
-pi install ./pi-evidence-0.1.0.tgz              # depuis l'archive produite par `bun run pack`
+tar -xzf libre-ai-pi-evidence-0.1.0.tgz && pi install "$PWD/package"   # depuis l'archive de `bun run pack`
 pi list                                          # doit lister le package
 ```
 
@@ -108,8 +108,11 @@ déclarée avec au moins un contrôle `required`.
 - Un dépôt sans git est refusé : sans révision, pas de preuve.
 - Sources de découverte : `package.json` et `Cargo.toml` seulement.
 - Exécution séquentielle ; un contrôle par processus ; pas de sandbox ajoutée.
-- L'annulation (Échap) arrête le contrôle en cours (`aborted`) et saute les
-  suivants (`skipped`) ; le dossier partiel est écrit avec verdict `incomplete`.
+- Annulation : Échap pendant un `evidence_run` appelé par le modèle arrête le
+  contrôle en cours (`aborted`), saute les suivants (`skipped`) et écrit un
+  dossier partiel `incomplete`. Échap pendant la commande `/evidence run` est
+  sans effet dans Pi 0.84.2 (aucun signal d'annulation n'atteint un handler
+  de commande) : le contrôle va au bout.
 
 ## Licence
 

@@ -4,10 +4,21 @@
   "description": "Pi Coding Agent package: run a repository's declared checks and record evidence bound to the revision, the recipe and the model identity, with a verdict that separates conformance from 'no problem detected'.",
   "license": "Apache-2.0",
   "type": "module",
-  "keywords": ["pi-package"],
-  "files": ["extensions", "src", "README.md", "LICENSES", "REUSE.toml", "docs/evidence.schema.json"],
+  "keywords": [
+    "pi-package"
+  ],
+  "files": [
+    "extensions",
+    "src",
+    "README.md",
+    "LICENSES",
+    "REUSE.toml",
+    "docs/evidence.schema.json"
+  ],
   "pi": {
-    "extensions": ["./extensions/evidence.ts"],
+    "extensions": [
+      "./extensions/evidence.ts"
+    ],
     "skills": [],
     "prompts": []
   },

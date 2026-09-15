@@ -1,9 +1,30 @@
 {
   "schema_version": 1,
   "checks": [
-    { "id": "lint", "command": "bun", "args": ["run", "lint"], "required": true },
-    { "id": "typecheck", "command": "bun", "args": ["run", "typecheck"], "required": true },
-    { "id": "test", "command": "bun", "args": ["test"], "required": true, "timeout_seconds": 900 },
-    { "id": "licenses", "command": "reuse", "args": ["lint"], "required": false }
+    {
+      "id": "lint",
+      "command": "bun",
+      "args": ["run", "lint"],
+      "required": true
+    },
+    {
+      "id": "typecheck",
+      "command": "bun",
+      "args": ["run", "typecheck"],
+      "required": true
+    },
+    {
+      "id": "test",
+      "command": "bun",
+      "args": ["test"],
+      "required": true,
+      "timeout_seconds": 900
+    },
+    {
+      "id": "licenses",
+      "command": "reuse",
+      "args": ["lint"],
+      "required": false
+    }
   ]
 }
