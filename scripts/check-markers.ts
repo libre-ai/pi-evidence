@@ -24,7 +24,12 @@ if (listing.status !== 0) {
 let problems = 0;
 for (const file of listing.stdout
   .split("\0")
-  .filter((f) => f !== "" && !f.startsWith("LICENSES/"))) {
+  .filter(
+    (f) =>
+      f !== "" &&
+      !f.startsWith("LICENSES/") &&
+      f !== "scripts/check-markers.ts",
+  )) {
   const text = readFileSync(file, "utf8");
   for (const [index, line] of text.split("\n").entries()) {
     for (const marker of markers) {
