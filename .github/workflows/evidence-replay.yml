@@ -25,7 +25,7 @@ jobs:
           # commit protocol reads HEAD and its first parent.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: 1.4.0
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4
