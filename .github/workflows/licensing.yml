@@ -10,6 +10,6 @@ permissions:
   contents: read
 jobs:
   licensing:
-    uses: libre-ai/governance/.github/workflows/reusable-licensing.yml@167184d4e4f68db510c72507df4d100cb5e5a7bc
+    uses: libre-ai/governance/.github/workflows/reusable-licensing.yml@9ac334cdf86cf05d126091f394d07c01d7745930
     with:
-      tooling_ref: 167184d4e4f68db510c72507df4d100cb5e5a7bc
+      tooling_ref: 9ac334cdf86cf05d126091f394d07c01d7745930
