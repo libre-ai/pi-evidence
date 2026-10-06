@@ -193,3 +193,15 @@ les checks de cette pull request ("Replay declared recipe", requis). Sur
 ## Licence
 
 Apache-2.0. Aucun code tiers repris.
+
+<!-- libre-ai:project-status:begin -->
+<!-- Section générée depuis project.v1.yaml — ne pas éditer à la main. -->
+
+- Situation actuelle : Version 0.2.0 source, CLI, tests and CI replay are published. The tool records declared-check conformance, not general task correctness. Recipe acceptance remains a human decision; signed evidence requires a configured key. Fleet enrollment validation is pending.
+- Maturité : usable
+- Exposition : usable-verifiable
+- Confiance : medium
+- Preuves vérifiées le : 2026-10-06
+- Avancement : 50 % du périmètre actuellement déclaré
+
+<!-- libre-ai:project-status:end -->

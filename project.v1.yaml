@@ -1,0 +1,60 @@
+schema_version: libre-ai.project.v1
+project: pi-evidence
+repository: libre-ai/pi-evidence
+kind: tool
+layer: couche-2
+statement:
+  for: people reviewing work performed in an approved Pi Coding Agent project
+  who_faces: a completion claim that is not bound to declared checks and the exact repository revision
+  enables: running declared checks and inspecting revision-bound evidence with an explicit verdict
+  producing:
+  - an evidence bundle and in-toto attestation
+  - conformant, failed, incomplete or unverified verdicts
+  - CI replay and optional SSH signature evidence
+  without_depending_on:
+  - an inferred model or provider identity
+  - an agent accepting the recipe on behalf of the owner
+summary: Pi package and CLI for declared-check evidence and replay.
+current_situation: Version 0.2.0 source, CLI, tests and CI replay are published. The tool records
+  declared-check conformance, not general task correctness. Recipe acceptance remains a human decision;
+  signed evidence requires a configured key. Fleet enrollment validation is pending.
+scope:
+- Pi extension and CLI recipe execution
+- Revision, recipe and declared model identity binding
+- In-toto attestations, optional SSH signatures and CI replay
+non_goals:
+- Choosing a provider or model
+- Treating a successful launcher as proof that the user task succeeded
+- Accepting an execution recipe on behalf of a person
+dependencies:
+- 'on': libre-ai/governance
+  why: Fleet doctrine and reusable workflow templates.
+  pinned: github:libre-ai/governance#9ac334cdf86cf05d126091f394d07c01d7745930
+- 'on': '@earendil-works/pi-coding-agent'
+  why: Host extension integration.
+  pinned: 0.84.2
+maturity: usable
+confidence: medium
+exposure: usable-verifiable
+freshness:
+  last_verified_on: '2026-10-06'
+scope_stability: stable
+phases:
+- id: published-source
+  title: Published tool surface
+  exit_criteria:
+  - id: package-source
+    text: The versioned package, CLI and documented limitations are observable in the repository.
+    weight: 1
+    status: accepted
+    evidence:
+      date: '2026-10-06'
+      reference: https://github.com/libre-ai/pi-evidence/tree/9ebfb4c9ce163d4a1ac1650c96f54f67f4e4f7da
+- id: fleet-enrollment
+  title: Fleet enrollment verification
+  exit_criteria:
+  - id: exact-revision-gates
+    text: The enrolled revision passes package quality, declared-recipe replay and applicable fleet
+      gates.
+    weight: 1
+    status: pending
