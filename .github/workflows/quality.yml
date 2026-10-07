@@ -26,7 +26,7 @@ jobs:
           persist-credentials: false
       - name: Install verified Bun archive
         env:
-          BUN_ARCHIVE_URL: https://github.com/libre-ai/governance/releases/download/toolchain-bun-1.4.0-canary.1-57f349f63/bun-linux-x64.zip
+          BUN_ARCHIVE_URL: https://github.com/libre-ai/project-governance/releases/download/toolchain-bun-1.4.0-canary.1-57f349f63/bun-linux-x64.zip
           BUN_ARCHIVE_SHA256: 83144e2542c33aaae541cf16b42f8cf1c55c3b94c5395fc776417fa27e95bcbf
         run: |
           set -euo pipefail

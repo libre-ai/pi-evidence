@@ -1,6 +1,6 @@
 # Canonical Dependabot configuration of the Libre AI fleet.
 #
-# Source of truth: libre-ai/governance, distribution/templates/dependabot/ —
+# Source of truth: libre-ai/project-governance, distribution/templates/dependabot/ —
 # two variants, one per manifest set observed at main. github-actions is
 # always present (every repository carries .github/workflows); cargo is added
 # when Cargo.toml exists: github-actions.yml, cargo.yml. Every non-archived

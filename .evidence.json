@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "notes": "Gabarit gouverné libre-ai/governance distribution/templates/evidence/bun.json — copie octet-exacte vérifiée par ecosystem/check-evidence-conformance.ts. Le contrôle composite `check` du package.json est le critère de conformité de flotte ; toute modification passe par le gabarit, jamais par le dépôt.",
+  "notes": "Gabarit gouverné libre-ai/project-governance distribution/templates/evidence/bun.json — copie octet-exacte vérifiée par ecosystem/check-evidence-conformance.ts. Le contrôle composite `check` du package.json est le critère de conformité de flotte ; toute modification passe par le gabarit, jamais par le dépôt.",
   "policy": "remind",
   "checks": [
     {
