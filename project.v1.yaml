@@ -2,7 +2,7 @@ schema_version: libre-ai.project.v1
 project: pi-evidence
 repository: libre-ai/pi-evidence
 kind: tool
-layer: couche-2
+layer: transverse
 statement:
   for: people reviewing work performed in an approved Pi Coding Agent project
   who_faces: a completion claim that is not bound to declared checks and the exact repository revision
