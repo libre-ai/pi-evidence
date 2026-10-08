@@ -2,7 +2,7 @@
 
 ## Authority
 
-Evidence brick of the Libre AI constellation, couche 2 (agent tooling):
+Evidence brick of the Libre AI constellation, transverse layer (agent tooling):
 a Pi Coding Agent package, CLI and CI replay that run a repository's declared
 checks and record signed, revision-bound evidence with an honest verdict
 (conformant, failed, incomplete, unverified).
