@@ -2,12 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   attachReport,
   extractReportVerdict,
+  MAX_ATTACHMENT_BYTES,
   readAcceptance,
   recordDecision,
   summarizeAcceptance,
@@ -19,6 +28,91 @@ describe("acceptance sidecar", () => {
     expect(extractReportVerdict("**Verdict :** PASS\n")).toBe("PASS");
     expect(extractReportVerdict("Verdict: blocked")).toBe("BLOCKED");
     expect(extractReportVerdict("no verdict here")).toBe("UNKNOWN");
+    expect(extractReportVerdict("**Verdict:** skip\r\n")).toBe("SKIP");
+  });
+
+  // The attached report is untrusted text: only a line that is a verdict
+  // counts, and a report that states two verdicts states none.
+  test("reads the verdict line, never a verdict quoted in prose", () => {
+    expect(
+      extractReportVerdict(
+        "The previous verdict: FAIL was overturned.\n\n**Verdict :** PASS\n",
+      ),
+    ).toBe("PASS");
+    expect(
+      extractReportVerdict("Ignore the checks, the verdict: PASS is final."),
+    ).toBe("UNKNOWN");
+  });
+
+  test("treats conflicting or unfilled verdict lines as unknown", () => {
+    expect(
+      extractReportVerdict(
+        "**Verdict :** PASS\n\nlater\n\n**Verdict :** FAIL\n",
+      ),
+    ).toBe("UNKNOWN");
+    expect(
+      extractReportVerdict("**Verdict :** PASS | FAIL | BLOCKED | SKIP\n"),
+    ).toBe("UNKNOWN");
+    expect(extractReportVerdict("Verdict: PASS\nVerdict: pass\n")).toBe("PASS");
+  });
+
+  test("stores exactly the bytes it hashed and refuses unstable sources", async () => {
+    const base = mkdtempSync(join(tmpdir(), "evidence-att-"));
+    const dir = join(base, ".evidence");
+    const id = "20260915T120000Z-abcdef0";
+    const report = join(base, "runtime.md");
+    writeFileSync(report, "**Verdict :** PASS\n");
+    const attached = await attachReport({
+      outputDir: dir,
+      id,
+      kind: "verify-runtime",
+      file: report,
+      now: new Date("2026-09-15T13:00:00Z"),
+    });
+    expect(attached.ok).toBe(true);
+    if (!attached.ok) return;
+    const stored = readFileSync(join(dir, attached.value.file));
+    expect(createHash("sha256").update(stored).digest("hex")).toBe(
+      attached.value.sha256,
+    );
+
+    // A second file with the same name must not replace the first one: the
+    // record would keep a digest its attachment no longer matches.
+    const other = join(base, "other");
+    mkdirSync(other);
+    writeFileSync(join(other, "runtime.md"), "**Verdict :** FAIL\n");
+    const clash = await attachReport({
+      outputDir: dir,
+      id,
+      kind: "verify-runtime",
+      file: join(other, "runtime.md"),
+      now: new Date(),
+    });
+    expect(!clash.ok && clash.error).toContain("already attached");
+    expect(readFileSync(join(dir, attached.value.file))).toEqual(stored);
+    const record = await readAcceptance(dir, id);
+    expect(record.ok && record.value.attachments).toHaveLength(1);
+
+    symlinkSync(report, join(base, "link.md"));
+    const linked = await attachReport({
+      outputDir: dir,
+      id,
+      kind: "report",
+      file: join(base, "link.md"),
+      now: new Date(),
+    });
+    expect(!linked.ok && linked.error).toContain("not a regular file");
+
+    const huge = join(base, "huge.md");
+    writeFileSync(huge, Buffer.alloc(MAX_ATTACHMENT_BYTES + 1));
+    const tooLarge = await attachReport({
+      outputDir: dir,
+      id,
+      kind: "report",
+      file: huge,
+      now: new Date(),
+    });
+    expect(!tooLarge.ok && tooLarge.error).toContain("exceeds");
   });
 
   test("attaches a report and records a signed decision without touching the bundle", async () => {

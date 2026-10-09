@@ -131,7 +131,11 @@ du candidat ; le différentiel dit si l'échec est introduit ou hérité.
   clé : attestation écrite, déclarée non signée.
 - Acceptation (sidecar `<id>.acceptance.json`, jamais dans l'attestation) :
   rapports attachés avec verdict extrait (`PASS`, `FAIL`, `BLOCKED`, `SKIP`)
-  et décisions humaines signées.
+  et décisions humaines signées. Un rapport est lu de façon stable (fichier
+  régulier, sans lien symbolique, ≤ 16 Mio, refusé s'il change pendant la
+  lecture) et la copie stockée est écrite depuis les octets empreintés ; un
+  nom déjà attaché est refusé. Seule une ligne entière `Verdict : X` compte ;
+  deux verdicts différents donnent `UNKNOWN`.
 
 Schéma : `docs/evidence.schema.json` (validé par les tests).
 

@@ -1,18 +1,15 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { createHash } from "node:crypto";
-import {
-  copyFile,
-  mkdir,
-  readFile,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { fail, ok, type Result } from "./result.ts";
 import type { Signer } from "./signer.ts";
+import { readStableFile } from "./stable-read.ts";
+
+// Reports are text; the bound keeps an attachment from filling the evidence
+// directory or memory with a file that was never a report.
+export const MAX_ATTACHMENT_BYTES = 16 * 1024 * 1024;
 
 // Acceptance lives in a sidecar next to the run bundle: the run attestation
 // stays immutable once signed, and a human decision is a separate signed act.
@@ -101,12 +98,42 @@ export async function readAcceptance(
 
 // The verdict line format is the one the governed runtime-verification skill
 // produces (`**Verdict :** PASS`); a plain `Verdict: PASS` is accepted too.
+// The report is untrusted text: a verdict counts only when it is the whole
+// line, so prose quoting a verdict or the skill's unfilled template line
+// (`PASS | FAIL | BLOCKED | SKIP`) is not read as one, and a report stating
+// two different verdicts states none.
+const VERDICT_LINE =
+  /^\s*\**\s*verdict\s*\**\s*:?\s*\**\s*(PASS|FAIL|BLOCKED|SKIP)\s*\**\s*$/i;
+
 export function extractReportVerdict(text: string): ReportVerdict {
-  const match = text.match(
-    /verdict\s*:?\*{0,2}\s*:?\s*(PASS|FAIL|BLOCKED|SKIP)\b/i,
-  );
-  if (match === null) return "UNKNOWN";
-  return (match[1] ?? "UNKNOWN").toUpperCase() as ReportVerdict;
+  const verdicts = new Set<ReportVerdict>();
+  for (const line of text.split(/\r?\n/)) {
+    const match = VERDICT_LINE.exec(line);
+    if (match?.[1] !== undefined) {
+      verdicts.add(match[1].toUpperCase() as ReportVerdict);
+    }
+  }
+  const [only] = verdicts;
+  return verdicts.size === 1 && only !== undefined ? only : "UNKNOWN";
+}
+
+// The attachment is created once: linking a fully written temporary file
+// fails if the name exists, so a second report with the same name can never
+// replace content whose digest the record already holds.
+async function storeOnce(target: string, bytes: Buffer): Promise<Result<void>> {
+  const temporary = `${target}.${process.pid}.tmp`;
+  try {
+    await writeFile(temporary, bytes, { flag: "wx" });
+    await link(temporary, target);
+    return ok(undefined);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      return fail(`${basename(target)} is already attached to this bundle`);
+    }
+    return fail(`cannot store attachment ${basename(target)}`);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 export async function attachReport(options: {
@@ -121,24 +148,22 @@ export async function attachReport(options: {
   }
   const record = await readAcceptance(options.outputDir, options.id);
   if (!record.ok) return record;
-  let bytes: Buffer;
-  try {
-    bytes = await readFile(options.file);
-  } catch {
-    return fail(`cannot read ${options.file}`);
-  }
+  const read = await readStableFile(options.file, MAX_ATTACHMENT_BYTES);
+  if (!read.ok) return read;
   const bundleDir = join(options.outputDir, options.id);
   const attachmentsDir = join(bundleDir, "attachments");
   await mkdir(attachmentsDir, { recursive: true });
   const name = basename(options.file);
-  const target = join(attachmentsDir, name);
-  await copyFile(options.file, target);
+  // The stored file is written from the bytes that were hashed, never copied
+  // again from the source path, which may have changed since the read.
+  const stored = await storeOnce(join(attachmentsDir, name), read.value.bytes);
+  if (!stored.ok) return stored;
   const attachment: Attachment = {
     kind: options.kind,
     file: join(options.id, "attachments", name),
-    sha256: createHash("sha256").update(bytes).digest("hex"),
+    sha256: read.value.sha256,
     attached_at: options.now.toISOString(),
-    report_verdict: extractReportVerdict(bytes.toString("utf8")),
+    report_verdict: extractReportVerdict(read.value.bytes.toString("utf8")),
   };
   await writeAtomic(acceptanceFile(options.outputDir, options.id), {
     ...record.value,
