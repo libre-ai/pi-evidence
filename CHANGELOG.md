@@ -1,5 +1,16 @@
 # Changelog
 
+## Non publié
+
+- `attach` : lecture stable de la pièce jointe (refus des liens symboliques,
+  borne de 16 Mio, refus si l'identité ou la version du fichier change entre
+  inspection, ouverture, lecture et inspection finale) ; la copie stockée est
+  écrite depuis les octets empreintés et un nom déjà attaché est refusé, au
+  lieu d'être écrasé sous une empreinte qui ne lui correspond plus.
+- Verdict de rapport : seule une ligne entière compte ; un verdict cité dans
+  la prose, la ligne de gabarit non remplie du skill `verify-runtime` ou deux
+  verdicts contradictoires donnent `UNKNOWN`.
+
 ## 0.2.0 — 2026-09-15
 
 - Format de dossier v2 : identité de dépôt sans chemin machine (`repository.name`,
