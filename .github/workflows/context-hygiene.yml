@@ -15,4 +15,4 @@ permissions:
 
 jobs:
   context-hygiene:
-    uses: libre-ai/project-governance/.github/workflows/reusable-context-hygiene.yml@1c8b37c80beb41f640982768ec27304a911e0b8e
+    uses: libre-ai/project-governance/.github/workflows/reusable-context-hygiene.yml@5ef12472d043f3ed1799ca09cff89c27ff024d79
