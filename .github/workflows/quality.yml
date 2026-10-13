@@ -34,7 +34,7 @@ jobs:
           echo "$BUN_ARCHIVE_SHA256  $RUNNER_TEMP/bun.zip" | sha256sum --check --strict
           unzip -q "$RUNNER_TEMP/bun.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/bun-linux-x64" >> "$GITHUB_PATH"
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       - name: Install REUSE tool
         run: uv tool install reuse==6.2.0 && reuse --version
       - name: Install dependencies
