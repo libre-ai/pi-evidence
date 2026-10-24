@@ -29,7 +29,7 @@ non_goals:
 dependencies:
 - 'on': libre-ai/project-governance
   why: Fleet doctrine and reusable workflow templates.
-  pinned: github:libre-ai/project-governance#0db2e10e3ea785c31c101914483ed501ec4cbb7a
+  pinned: github:libre-ai/project-governance#75d6ea085b18cb15d450d7f0f5b1ba9d69645800
 - 'on': '@earendil-works/pi-coding-agent'
   why: Host extension integration.
   pinned: 0.84.2
