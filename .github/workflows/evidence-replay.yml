@@ -37,7 +37,7 @@ jobs:
           echo "$RUNNER_TEMP/bun-linux-x64" >> "$GITHUB_PATH"
       - name: Verify exact Bun revision
         run: test "$(bun --revision)" = '1.4.0-canary.1+57f349f63'
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
       - name: Install the tools the recipe declares (REUSE), so the replay is faithful
         run: uv tool install reuse==6.2.0 && reuse --version
       - run: bun install --frozen-lockfile
