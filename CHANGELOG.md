@@ -2,6 +2,22 @@
 
 ## Non publié
 
+- **Changement de comportement** — `verify --ci` sans dossier de preuves
+  commité pour la révision sort désormais en 3 (état `no-reference`,
+  `"skipped": false`) au lieu de 0. L'absence attendue se déclare par
+  `--allow-missing-reference` (code 0, `"skipped": true`) ; le workflow
+  `evidence-replay` ne le passe que hors pull request.
+- `verify --ci` : un dossier de preuves commité mais illisible (JSON tronqué,
+  schéma invalide, fichier absent de l'arbre de travail) ou un listing git en
+  échec sort en 2 avec le nom du fichier, avec ou sans
+  `--allow-missing-reference`. Il n'est plus rapporté comme une absence.
+- `check:markers` imprime son volume (fichiers lus, illisibles, exemptés,
+  liens symboliques, entrées de sous-module, suivis, familles de marqueurs) et
+  sort en 2 si aucun fichier n'est lu ou si un fichier suivi est illisible.
+  Les compteurs somment au nombre d'entrées suivies. Le listing part de la
+  racine du dépôt quel que soit le répertoire courant. Un lien symbolique
+  suivi n'est jamais lu à travers sa cible : seul le texte de sa cible, que
+  git versionne, est balayé.
 - `attach` : lecture stable de la pièce jointe (refus des liens symboliques,
   borne de 16 Mio, refus si l'identité ou la version du fichier change entre
   inspection, ouverture, lecture et inspection finale) ; la copie stockée est

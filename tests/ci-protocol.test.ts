@@ -122,15 +122,48 @@ describe("evidence-only commit protocol", () => {
     git(dir, "commit", "-q", "-m", "more code");
     const noReference = await service.verifyForCi(session);
     expect(noReference.ok && noReference.value.kind).toBe("no-reference");
-    const cliSkip = { out: [] as string[] };
+    // AGENTS.md: "Every pull request carries its own evidence". A code commit
+    // without a committed bundle is therefore a failure with its own exit
+    // code, distinct from a diverging replay (1) and from a usage error (2).
+    const cliMissing = { out: [] as string[] };
     expect(
       await runCli(
         ["verify", "--ci", "--json", "--cwd", dir],
-        { stdout: (t) => cliSkip.out.push(t), stderr: () => undefined },
+        { stdout: (t) => cliMissing.out.push(t), stderr: () => undefined },
+        env,
+      ),
+    ).toBe(3);
+    const missing = JSON.parse(cliMissing.out.join(""));
+    expect(missing.outcome).toBe("no-reference");
+    expect(missing.skipped).toBe(false);
+    expect(missing.reason).toContain("no committed bundle");
+    const cliMissingHuman = { out: [] as string[], err: [] as string[] };
+    expect(
+      await runCli(
+        ["verify", "--ci", "--cwd", dir],
+        {
+          stdout: (t) => cliMissingHuman.out.push(t),
+          stderr: (t) => cliMissingHuman.err.push(t),
+        },
+        env,
+      ),
+    ).toBe(3);
+    expect(cliMissingHuman.out).toEqual([]);
+    expect(cliMissingHuman.err.join("")).toContain("--allow-missing-reference");
+
+    // README, "CI": on the served branch after a squash merge no bundle
+    // matches HEAD, and that is expected. The caller has to say so.
+    const cliAllowed = { out: [] as string[] };
+    expect(
+      await runCli(
+        ["verify", "--ci", "--allow-missing-reference", "--json", "--cwd", dir],
+        { stdout: (t) => cliAllowed.out.push(t), stderr: () => undefined },
         env,
       ),
     ).toBe(0);
-    expect(JSON.parse(cliSkip.out.join("")).skipped).toBe(true);
+    const allowed = JSON.parse(cliAllowed.out.join(""));
+    expect(allowed.outcome).toBe("no-reference");
+    expect(allowed.skipped).toBe(true);
 
     // A diverging replay in the evidence-only protocol fails the gate.
     const again = await service.run({ only: [], session });
@@ -154,5 +187,104 @@ describe("evidence-only commit protocol", () => {
         env,
       ),
     ).toBe(1);
+  });
+
+  // A committed bundle that cannot be read is not an absent one: reporting
+  // "no committed bundle" would be false, and --allow-missing-reference would
+  // then turn a damaged reference into a green run.
+  test("verify --ci: a committed bundle that cannot be read is a failure, never an absence", async () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, ".gitignore"), ".evidence/*\n!.evidence/*.json\n");
+    writeFileSync(
+      join(dir, ".evidence.json"),
+      JSON.stringify({
+        schema_version: 1,
+        checks: [
+          { id: "t", command: "sh", args: ["-c", "true"], required: true },
+        ],
+      }),
+    );
+    git(dir, "add", "-A", ".");
+    git(dir, "commit", "-q", "-m", "code");
+    const service = new EvidenceService({
+      exec: runProcess,
+      repoRoot: dir,
+      env: {},
+    });
+    const first = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "dev" },
+    });
+    if (!first.ok) throw new Error(first.error);
+    git(dir, "add", "-A", ".evidence");
+    git(dir, "commit", "-q", "-m", "evidence for code");
+    const name = `${first.value.bundle.id}.json`;
+
+    const cli = async (...flags: string[]) => {
+      const out: string[] = [];
+      const code = await runCli(
+        ["verify", "--ci", ...flags, "--json", "--cwd", dir],
+        { stdout: (t) => out.push(t), stderr: () => undefined },
+        env,
+      );
+      return { code, json: JSON.parse(out.join("")) };
+    };
+
+    // Truncated JSON, as an interrupted write or a bad merge would leave it.
+    writeFileSync(first.value.file, "{");
+    for (const flags of [[], ["--allow-missing-reference"]]) {
+      const damaged = await cli(...flags);
+      expect(damaged.code).toBe(2);
+      expect(damaged.json.error).toContain("committed bundle cannot be read");
+      expect(damaged.json.error).toContain(name);
+      expect(damaged.json.outcome).toBeUndefined();
+      expect(damaged.json.skipped).toBeUndefined();
+    }
+
+    // Tracked in the index, gone from the working tree.
+    execFileSync("rm", [first.value.file]);
+    for (const flags of [[], ["--allow-missing-reference"]]) {
+      const gone = await cli(...flags);
+      expect(gone.code).toBe(2);
+      expect(gone.json.error).toContain("committed bundle cannot be read");
+      expect(gone.json.error).toContain(name);
+    }
+  });
+
+  test("verifyForCi: a failed listing of the committed bundles is a failure, never an absence", async () => {
+    const dir = gitRepo();
+    writeFileSync(
+      join(dir, ".evidence.json"),
+      JSON.stringify({
+        schema_version: 1,
+        checks: [
+          { id: "t", command: "sh", args: ["-c", "true"], required: true },
+        ],
+      }),
+    );
+    git(dir, "add", "-A", ".");
+    git(dir, "commit", "-q", "-m", "code");
+    for (const failure of ["exit", "spawn"] as const) {
+      const service = new EvidenceService({
+        exec: async (command, args, options) => {
+          if (command !== "git" || args[0] !== "ls-files")
+            return runProcess(command, args, options);
+          return failure === "spawn"
+            ? { ok: false, error: "spawn-failed" }
+            : {
+                ok: true,
+                value: { code: 128, stdout: "", stderr: "", durationMs: 0 },
+              };
+        },
+        repoRoot: dir,
+        env: {},
+      });
+      const listed = await service.verifyForCi(session);
+      expect(listed.ok).toBe(false);
+      expect(!listed.ok && listed.error).toContain(
+        "cannot list the committed bundles",
+      );
+    }
   });
 });

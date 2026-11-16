@@ -13,6 +13,7 @@ import {
 import { verifyAttestation, writeAttestation } from "./attestation.ts";
 import { bindRevision, collectToolVersions } from "./binding.ts";
 import {
+  BUNDLE_FILE,
   bundleFile,
   bundleId,
   type EvidenceBundle,
@@ -489,16 +490,24 @@ export class EvidenceService {
       ["ls-files", "-z", "--", recipe.value.output_dir],
       { cwd: this.deps.repoRoot, timeoutMs: 30_000 },
     );
-    const trackedFiles = new Set(
-      tracked.ok && tracked.value.code === 0
-        ? tracked.value.stdout.split("\0").filter((f) => f !== "")
-        : [],
-    );
+    // A listing that failed says nothing about what is committed: answering
+    // "no reference" from it would report an absence nobody observed.
+    if (!tracked.ok || tracked.value.code !== 0)
+      return fail("cannot list the committed bundles: git ls-files failed");
+    const prefix = `${recipe.value.output_dir}/`;
     const bundles: EvidenceBundle[] = [];
-    for (const id of await listBundleIds(dir)) {
-      if (!trackedFiles.has(`${recipe.value.output_dir}/${id}.json`)) continue;
-      const loaded = await loadBundle(bundleFile(dir, id));
-      if (loaded.ok) bundles.push(loaded.value);
+    // The index is the source, not the directory: a committed bundle that is
+    // damaged or gone from the working tree is a failure with its name, never
+    // a bundle that does not exist.
+    for (const file of tracked.value.stdout.split("\0").sort()) {
+      const name = file.startsWith(prefix) ? file.slice(prefix.length) : "";
+      if (!BUNDLE_FILE.test(name)) continue;
+      const loaded = await loadBundle(join(dir, name));
+      if (!loaded.ok)
+        return fail(
+          `committed bundle cannot be read: ${name} (${loaded.error})`,
+        );
+      bundles.push(loaded.value);
     }
     let protocol: "same-head" | "evidence-only-commit" = "same-head";
     let reference = bundles.filter((b) => b.revision.head === headSha).at(-1);
@@ -516,7 +525,6 @@ export class EvidenceService {
         changed.ok && changed.value.code === 0
           ? changed.value.stdout.split("\n").filter((f) => f !== "")
           : [];
-      const prefix = `${recipe.value.output_dir}/`;
       const evidenceOnly =
         files.length > 0 && files.every((f) => f.startsWith(prefix));
       if (evidenceOnly && parent.ok && parent.value.code === 0) {

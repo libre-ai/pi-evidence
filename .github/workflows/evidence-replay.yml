@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Replays the declared recipe on the pull request head and compares the
-# result with the evidence bundle committed for that exact revision. A missing
-# bundle, a non-reproduced replay or a non-conformant verdict fails the job:
-# the developer's local evidence has to survive an independent machine.
+# result with the evidence bundle committed for that exact revision. On a pull
+# request, a missing bundle (`verify --ci` exit 3), a non-reproduced replay
+# (exit 1) or a non-conformant verdict fails the job: the developer's local
+# evidence has to survive an independent machine. On a manual run the missing
+# bundle is allowed explicitly (`--allow-missing-reference`), because a
+# squash-merged line holds no bundle for its own HEAD.
 name: evidence-replay
 
 on:
@@ -46,4 +49,15 @@ jobs:
       - name: Gate on the recipe (conformant required)
         run: bun bin/evidence.ts gate --json
       - name: Compare with the committed evidence (evidence-only commit protocol)
-        run: bun bin/evidence.ts verify --ci --json
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # A pull request carries its own evidence: no bundle, exit 3.
+            bun bin/evidence.ts verify --ci --json
+          else
+            # A manual run on a squash-merged line has no bundle for its HEAD:
+            # the absence is expected there and reported as such, not hidden.
+            bun bin/evidence.ts verify --ci --allow-missing-reference --json
+          fi
