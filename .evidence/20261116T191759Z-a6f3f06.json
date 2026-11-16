@@ -1,0 +1,88 @@
+{
+  "schema_version": 2,
+  "id": "20261116T191759Z-a6f3f06",
+  "created_at": "2026-11-16T19:17:59.435Z",
+  "repository": {
+    "name": "pi-evidence",
+    "origin": "https://github.com/libre-ai/pi-evidence.git"
+  },
+  "revision": {
+    "head": "a6f3f062b01b9d4af682d8cd1a87a4eab1961a1d",
+    "branch": "fix/verify-ci-missing-reference",
+    "dirty": false,
+    "changed_files": [],
+    "status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "recipe": {
+    "origin": "declared",
+    "hash": "6bf3ceb4d34e8da805164ee88cbf6544a660458ebaea23f9dd965cdd67ac5968",
+    "checks": [
+      {
+        "id": "check",
+        "command": "bun",
+        "args": [
+          "run",
+          "check"
+        ],
+        "required": true,
+        "timeout_seconds": 1800
+      }
+    ],
+    "selected": [
+      "check"
+    ]
+  },
+  "results": [
+    {
+      "id": "check",
+      "command": "bun",
+      "args": [
+        "run",
+        "check"
+      ],
+      "required": true,
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-11-16T19:17:59.438Z",
+      "duration_ms": 34842,
+      "stdout_sha256": "e515e4c5d359a67652970dde6d5379b735f47c233e7cb878a3325193dde67dd2",
+      "stderr_sha256": "6f5992d3a8ca3cb4fa5c3b6753aea443e7cce2fd5b05ad92e0b34908121d3cdc",
+      "stdout_tail": "\u001b[0m\u001b[34mChecked 56 files in 68\u001b[0m\u001b[0m\u001b[2m\u001b[34mms\u001b[0m\u001b[0m\u001b[34m.\u001b[0m\u001b[0m\u001b[34m No fixes applied.\u001b[0m\nbun test v1.4.4-canary.1 (963452075)\n# SUMMARY\n\n* Bad licenses: 0\n* Deprecated licenses: 0\n* Licenses without file extension: 0\n* Missing licenses: 0\n* Unused licenses: 0\n* Used licenses: Apache-2.0\n* Read errors: 0\n* Invalid SPDX License Expressions: 0\n* Files with copyright information: 101 / 101\n* Files with license information: 101 / 101\n\nCongratulations! Your project is compliant with version 3.3 of the REUSE Specification :-)\nno private marker in tracked files: 101 files read, 0 unreadable, 2 exempted, 103 tracked, 6 marker families applied\n",
+      "stderr_tail": "$ bun run lint && bun run typecheck && bun test && bun run check:licenses && bun run check:markers\n$ biome ci .\n$ tsc --noEmit -p tsconfig.json\n------------------------|---------|---------|-------------------\nFile                    | % Funcs | % Lines | Uncovered Line #s\n------------------------|---------|---------|-------------------\nAll files               |  100.00 |   98.14 |\n extensions/evidence.ts |  100.00 |   96.71 | 68-70,191,194-195,205-206,241,260,355\n src/acceptance.ts      |  100.00 |   96.27 | 59-61,94,133\n src/attestation.ts     |  100.00 |   98.14 | 67,214-216\n src/binding.ts         |  100.00 |   98.78 | 34\n src/bundle.ts          |  100.00 |   95.74 | 85-87,110\n src/cli.ts             |  100.00 |   95.20 | 137-145,183,207,210,282\n src/compare.ts         |  100.00 |  100.00 | \n src/config.ts          |  100.00 |   96.88 | 116-118\n src/differential.ts    |  100.00 |   97.20 | 96,135,155,168\n src/discovery.ts       |  100.00 |  100.00 | \n src/environment.ts     |  100.00 |   95.24 | 40,51,61\n src/exec.ts            |  100.00 |  100.00 | \n src/init.ts            |  100.00 |  100.00 | \n src/prune.ts           |  100.00 |   95.83 | 78-79\n src/recipe.ts          |  100.00 |  100.00 | \n src/result.ts          |  100.00 |  100.00 | \n src/runner.ts          |  100.00 |  100.00 | \n src/scrub.ts           |  100.00 |  100.00 | \n src/service.ts         |  100.00 |   95.66 | 93-97,127,167-168,193,374,379-380,390,393,395,447,495,518,538\n src/signer.ts          |  100.00 |  100.00 | \n src/stable-read.ts     |  100.00 |  100.00 | \n src/trust.ts           |  100.00 |   95.65 | 94-96\n src/verdict.ts         |  100.00 |  100.00 | \n------------------------|---------|---------|-------------------\n\n 125 pass\n 0 fail\n 721 expect() calls\nRan 125 tests across 26 files. [29.46s]\n$ reuse lint\n$ bun scripts/check-markers.ts\n",
+      "log_files": {
+        "stdout": "20261116T191759Z-a6f3f06/check.stdout.log",
+        "stderr": "20261116T191759Z-a6f3f06/check.stderr.log"
+      },
+      "redactions": []
+    }
+  ],
+  "verdict": "conformant",
+  "reasons": [
+    "all required checks passed",
+    ".evidence/ is not ignored by git: checks that scan untracked files may fail because of the evidence itself (add it to .gitignore)"
+  ],
+  "criteria_declared": true,
+  "requirement": null,
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "lockfiles": {
+      "bun.lock": "1070ee9732abc4976e3610c6c2ccca6eabad0c3a96e7e3b4eeceea069d83c466"
+    },
+    "node_modules_present": true,
+    "fingerprint_sha256": "4a389cb3d3401b27b234c98398214a9368d4f05b376b299f3bebca0f3f94839c"
+  },
+  "differential": null,
+  "session": {
+    "session_id": "cli:85257",
+    "provider": "anthropic",
+    "model": "claude-fable-5-2",
+    "thinking_level": null
+  },
+  "tools": {
+    "bun": "1.4.4",
+    "node": "v26.13.0",
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)"
+  }
+}
