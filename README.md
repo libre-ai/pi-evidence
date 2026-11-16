@@ -158,7 +158,9 @@ sortie 1). Sans référence, `verify --ci` échoue avec le code de sortie 3 et
 l'état `no-reference` (`"skipped": false` en JSON) : un rejeu qui n'a rien
 comparé n'est pas un succès. L'absence ne passe que si l'appelant la déclare
 attendue par `--allow-missing-reference` (code 0, `"skipped": true`). Le
-workflow ne passe ce drapeau que hors pull request. Ce dépôt applique ce
+workflow ne passe ce drapeau que hors pull request. Un dossier commité mais
+illisible n'est pas une absence : `verify --ci` sort alors en 2 en nommant le
+fichier, avec ou sans le drapeau. Ce dépôt applique ce
 protocole à lui-même (`.gitignore` : dossiers et attestations suivis,
 journaux locaux).
 

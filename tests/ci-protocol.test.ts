@@ -188,4 +188,103 @@ describe("evidence-only commit protocol", () => {
       ),
     ).toBe(1);
   });
+
+  // A committed bundle that cannot be read is not an absent one: reporting
+  // "no committed bundle" would be false, and --allow-missing-reference would
+  // then turn a damaged reference into a green run.
+  test("verify --ci: a committed bundle that cannot be read is a failure, never an absence", async () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, ".gitignore"), ".evidence/*\n!.evidence/*.json\n");
+    writeFileSync(
+      join(dir, ".evidence.json"),
+      JSON.stringify({
+        schema_version: 1,
+        checks: [
+          { id: "t", command: "sh", args: ["-c", "true"], required: true },
+        ],
+      }),
+    );
+    git(dir, "add", "-A", ".");
+    git(dir, "commit", "-q", "-m", "code");
+    const service = new EvidenceService({
+      exec: runProcess,
+      repoRoot: dir,
+      env: {},
+    });
+    const first = await service.run({
+      only: [],
+      session,
+      acceptRecipe: { by: "dev" },
+    });
+    if (!first.ok) throw new Error(first.error);
+    git(dir, "add", "-A", ".evidence");
+    git(dir, "commit", "-q", "-m", "evidence for code");
+    const name = `${first.value.bundle.id}.json`;
+
+    const cli = async (...flags: string[]) => {
+      const out: string[] = [];
+      const code = await runCli(
+        ["verify", "--ci", ...flags, "--json", "--cwd", dir],
+        { stdout: (t) => out.push(t), stderr: () => undefined },
+        env,
+      );
+      return { code, json: JSON.parse(out.join("")) };
+    };
+
+    // Truncated JSON, as an interrupted write or a bad merge would leave it.
+    writeFileSync(first.value.file, "{");
+    for (const flags of [[], ["--allow-missing-reference"]]) {
+      const damaged = await cli(...flags);
+      expect(damaged.code).toBe(2);
+      expect(damaged.json.error).toContain("committed bundle cannot be read");
+      expect(damaged.json.error).toContain(name);
+      expect(damaged.json.outcome).toBeUndefined();
+      expect(damaged.json.skipped).toBeUndefined();
+    }
+
+    // Tracked in the index, gone from the working tree.
+    execFileSync("rm", [first.value.file]);
+    for (const flags of [[], ["--allow-missing-reference"]]) {
+      const gone = await cli(...flags);
+      expect(gone.code).toBe(2);
+      expect(gone.json.error).toContain("committed bundle cannot be read");
+      expect(gone.json.error).toContain(name);
+    }
+  });
+
+  test("verifyForCi: a failed listing of the committed bundles is a failure, never an absence", async () => {
+    const dir = gitRepo();
+    writeFileSync(
+      join(dir, ".evidence.json"),
+      JSON.stringify({
+        schema_version: 1,
+        checks: [
+          { id: "t", command: "sh", args: ["-c", "true"], required: true },
+        ],
+      }),
+    );
+    git(dir, "add", "-A", ".");
+    git(dir, "commit", "-q", "-m", "code");
+    for (const failure of ["exit", "spawn"] as const) {
+      const service = new EvidenceService({
+        exec: async (command, args, options) => {
+          if (command !== "git" || args[0] !== "ls-files")
+            return runProcess(command, args, options);
+          return failure === "spawn"
+            ? { ok: false, error: "spawn-failed" }
+            : {
+                ok: true,
+                value: { code: 128, stdout: "", stderr: "", durationMs: 0 },
+              };
+        },
+        repoRoot: dir,
+        env: {},
+      });
+      const listed = await service.verifyForCi(session);
+      expect(listed.ok).toBe(false);
+      expect(!listed.ok && listed.error).toContain(
+        "cannot list the committed bundles",
+      );
+    }
+  });
 });
