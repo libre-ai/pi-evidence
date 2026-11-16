@@ -7,7 +7,9 @@
   `"skipped": false`) au lieu de 0. L'absence attendue se déclare par
   `--allow-missing-reference` (code 0, `"skipped": true`) ; le workflow
   `evidence-replay` ne le passe que hors pull request.
-
+- `check:markers` imprime son volume (fichiers lus, illisibles, exemptés,
+  suivis, familles de marqueurs) et sort en 2 si aucun fichier n'est lu ou si
+  un fichier suivi est illisible.
 - `attach` : lecture stable de la pièce jointe (refus des liens symboliques,
   borne de 16 Mio, refus si l'identité ou la version du fichier change entre
   inspection, ouverture, lecture et inspection finale) ; la copie stockée est
