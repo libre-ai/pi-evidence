@@ -2,6 +2,12 @@
 
 ## Non publié
 
+- **Changement de comportement** — `verify --ci` sans dossier de preuves
+  commité pour la révision sort désormais en 3 (état `no-reference`,
+  `"skipped": false`) au lieu de 0. L'absence attendue se déclare par
+  `--allow-missing-reference` (code 0, `"skipped": true`) ; le workflow
+  `evidence-replay` ne le passe que hors pull request.
+
 - `attach` : lecture stable de la pièce jointe (refus des liens symboliques,
   borne de 16 Mio, refus si l'identité ou la version du fichier change entre
   inspection, ouverture, lecture et inspection finale) ; la copie stockée est

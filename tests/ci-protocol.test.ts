@@ -122,15 +122,48 @@ describe("evidence-only commit protocol", () => {
     git(dir, "commit", "-q", "-m", "more code");
     const noReference = await service.verifyForCi(session);
     expect(noReference.ok && noReference.value.kind).toBe("no-reference");
-    const cliSkip = { out: [] as string[] };
+    // AGENTS.md: "Every pull request carries its own evidence". A code commit
+    // without a committed bundle is therefore a failure with its own exit
+    // code, distinct from a diverging replay (1) and from a usage error (2).
+    const cliMissing = { out: [] as string[] };
     expect(
       await runCli(
         ["verify", "--ci", "--json", "--cwd", dir],
-        { stdout: (t) => cliSkip.out.push(t), stderr: () => undefined },
+        { stdout: (t) => cliMissing.out.push(t), stderr: () => undefined },
+        env,
+      ),
+    ).toBe(3);
+    const missing = JSON.parse(cliMissing.out.join(""));
+    expect(missing.outcome).toBe("no-reference");
+    expect(missing.skipped).toBe(false);
+    expect(missing.reason).toContain("no committed bundle");
+    const cliMissingHuman = { out: [] as string[], err: [] as string[] };
+    expect(
+      await runCli(
+        ["verify", "--ci", "--cwd", dir],
+        {
+          stdout: (t) => cliMissingHuman.out.push(t),
+          stderr: (t) => cliMissingHuman.err.push(t),
+        },
+        env,
+      ),
+    ).toBe(3);
+    expect(cliMissingHuman.out).toEqual([]);
+    expect(cliMissingHuman.err.join("")).toContain("--allow-missing-reference");
+
+    // README, "CI": on the served branch after a squash merge no bundle
+    // matches HEAD, and that is expected. The caller has to say so.
+    const cliAllowed = { out: [] as string[] };
+    expect(
+      await runCli(
+        ["verify", "--ci", "--allow-missing-reference", "--json", "--cwd", dir],
+        { stdout: (t) => cliAllowed.out.push(t), stderr: () => undefined },
         env,
       ),
     ).toBe(0);
-    expect(JSON.parse(cliSkip.out.join("")).skipped).toBe(true);
+    const allowed = JSON.parse(cliAllowed.out.join(""));
+    expect(allowed.outcome).toBe("no-reference");
+    expect(allowed.skipped).toBe(true);
 
     // A diverging replay in the evidence-only protocol fails the gate.
     const again = await service.run({ only: [], session });

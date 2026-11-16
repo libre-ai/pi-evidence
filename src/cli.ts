@@ -12,7 +12,9 @@ export const USAGE = [
   "",
   "  run       [--only a,b] [--requirement REF] [--base REF] [--accept-recipe --by NAME]",
   "  gate      same as run; exit 0 only when the verdict is conformant",
-  "  verify    [ID] [--require-reproduced] [--if-present] | --ci (evidence-only commit protocol)",
+  "  verify    [ID] [--require-reproduced] [--if-present]",
+  "            --ci [--allow-missing-reference] (evidence-only commit protocol;",
+  "            exit 1 not reproduced, exit 3 no committed evidence for the revision)",
   "  compare   --base REF (run with a base/candidate differential)",
   "  status | show [ID] | config",
   "  accept    --by NAME              accept the current recipe (pin it)",
@@ -25,6 +27,10 @@ export const USAGE = [
   "EVIDENCE_PROVIDER, EVIDENCE_MODEL (defaults: cli:<pid>, cli, none).",
   "Signing: EVIDENCE_SSH_KEY or git gpg.format=ssh + user.signingkey; verification: EVIDENCE_ALLOWED_SIGNERS.",
 ].join("\n");
+
+// `verify --ci` found no committed evidence to replay: neither a diverging
+// replay (1) nor a usage or execution error (2).
+export const EXIT_NO_REFERENCE = 3;
 
 export interface CliIo {
   readonly stdout: (text: string) => void;
@@ -44,6 +50,7 @@ const BOOLEAN_FLAGS = new Set([
   "require-reproduced",
   "if-present",
   "ci",
+  "allow-missing-reference",
   "force",
   "dry-run",
   "help",
@@ -219,11 +226,27 @@ export async function runCli(
         const result = await service.verifyForCi(sessionFromEnv(env));
         if (!result.ok) return failWith(result.error);
         if (result.value.kind === "no-reference") {
-          emit(`aucune référence à rejouer : ${result.value.reason}`, {
-            skipped: true,
+          // A replay that compared nothing is not a success: the absence is
+          // accepted only when the caller states that it is expected.
+          const allowed = parsed.flags["allow-missing-reference"] === true;
+          const machine = {
+            outcome: "no-reference",
+            skipped: allowed,
             reason: result.value.reason,
-          });
-          return 0;
+          };
+          if (allowed) {
+            emit(
+              `aucune référence à rejouer (--allow-missing-reference) : ${result.value.reason}`,
+              machine,
+            );
+            return 0;
+          }
+          if (json) io.stdout(`${JSON.stringify(machine, null, 2)}\n`);
+          else
+            io.stderr(
+              `evidence: aucune référence à rejouer : ${result.value.reason} ; commiter le dossier de preuves de cette révision, ou passer --allow-missing-reference si l'absence est attendue\n`,
+            );
+          return EXIT_NO_REFERENCE;
         }
         const c = result.value.comparison;
         emit(

@@ -153,15 +153,21 @@ d'autre. En CI, quand `HEAD` est un tel commit, les dossiers de son parent X
 sont la référence : les arbres sous test sont identiques par construction,
 seul `HEAD` diffère. Seuls les dossiers suivis par git comptent comme
 référence : le dossier écrit par le job lui-même n'est jamais comparé à
-lui-même. Sans référence, l'étape est marquée ignorée ; une comparaison
-`diverged` ou `stale` fait échouer le job. Ce dépôt applique ce protocole à
-lui-même (`.gitignore` : dossiers et attestations suivis, journaux locaux).
+lui-même. Une comparaison `diverged` ou `stale` fait échouer le job (code de
+sortie 1). Sans référence, `verify --ci` échoue avec le code de sortie 3 et
+l'état `no-reference` (`"skipped": false` en JSON) : un rejeu qui n'a rien
+comparé n'est pas un succès. L'absence ne passe que si l'appelant la déclare
+attendue par `--allow-missing-reference` (code 0, `"skipped": true`). Le
+workflow ne passe ce drapeau que hors pull request. Ce dépôt applique ce
+protocole à lui-même (`.gitignore` : dossiers et attestations suivis,
+journaux locaux).
 
 Avec un merge par squash, les commits de la branche disparaissent de `main` :
 les dossiers commités y restent des enregistrements historiques dont la
 révision est celle du head de la pull request, et la preuve de rejeu vit dans
 les checks de cette pull request ("Replay declared recipe", requis). Sur
-`main`, `verify --ci` répond « aucune référence » : c'est attendu.
+la branche servie, `verify --ci` répond « aucune référence » (code 3) : c'est
+attendu, et c'est le cas que `--allow-missing-reference` déclare.
 
 ## Sécurité
 
