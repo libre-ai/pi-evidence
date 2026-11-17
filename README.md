@@ -65,6 +65,18 @@ tous deux exécutés en code, jamais par simple consigne :
 | `/evidence accept` | accepte la recette courante |
 | outils modèle `evidence_run` (`only`, `requirement`, `base_ref`), `evidence_status` | même logique, mêmes portes |
 | CLI `evidence run\|gate\|verify\|compare\|status\|show\|config\|accept\|init\|attach\|decide\|prune` | tout ce qui précède hors Pi, `--json` pour la CI |
+| CLI `evidence leak-check --reference FICHIER JOURNAL...` | cherche chaque valeur de référence (une par ligne), octet pour octet, dans les journaux ; n'imprime que des chemins et `files=F bytes=B reference=R leaks=L` ; sortie 0 sans fuite, 1 si fuite, référence vide ou source illisible, 2 pour l'usage |
+| CLI `evidence publish-logs --summary FICHIER --controls a,b --from RÉP --to RÉP` | copie `--from` vers `--to` seulement si chaque contrôle nommé a exactement une ligne `expected=pass got=pass as-expected` dans le résumé ; imprime `named=N passed=P absent=A not_passed=B` ; sortie 0 publié, 1 retenu (`--to` n'existe pas), 2 pour l'usage |
+
+Ces deux commandes lisent des fichiers ordinaires et répondent hors dépôt git
+(chemins résolus contre `--cwd`). `leak-check` complète le caviardage par
+motifs : il compte des valeurs connues après coup et ne dérive aucune
+variante, la référence porte donc chaque forme à chercher (chemin avec et sans
+préfixe, empreinte). Ligne de résumé lue par `publish-logs` :
+`<contrôle> <situation> expected=<pass|fail> got=<pass|fail> <as-expected|unexpected>` ;
+un contrôle absent, en double, réduit à un témoin `expected=fail`, ou
+accompagné d'une ligne malformée retient la publication. `--to` ne doit pas
+exister, et un lien symbolique sous `--from` retient tout.
 
 ### Garde de fin de tour
 

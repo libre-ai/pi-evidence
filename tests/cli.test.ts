@@ -3,7 +3,17 @@
 
 import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgv, runCli } from "../src/cli.ts";
 import { gitRepo } from "./binding.test.ts";
@@ -257,5 +267,203 @@ describe("evidence CLI", () => {
       { encoding: "utf8", env: { ...process.env, ...env } },
     );
     expect(JSON.parse(out).bundle.verdict).toBe("conformant");
+  });
+});
+
+const PASS = "expected=pass got=pass as-expected";
+
+// A directory outside any git repository: a summary and a tree of logs.
+function logsFixture(summary: readonly string[]): string {
+  const dir = mkdtempSync(join(tmpdir(), "evidence-publish-"));
+  writeFileSync(join(dir, "summary.txt"), `${summary.join("\n")}\n`);
+  mkdirSync(join(dir, "logs", "nested", "empty"), { recursive: true });
+  writeFileSync(join(dir, "logs", "a.stdout.log"), "first\n");
+  writeFileSync(join(dir, "logs", "nested", "b.stderr.log"), "second\n");
+  return dir;
+}
+
+function publishArgs(dir: string, controls: string): string[] {
+  return [
+    "publish-logs",
+    "--summary",
+    "summary.txt",
+    "--controls",
+    controls,
+    "--from",
+    "logs",
+    "--to",
+    "out",
+    "--cwd",
+    dir,
+  ];
+}
+
+describe("evidence publish-logs", () => {
+  const passing = [`alpha boot ${PASS}`, `beta boot ${PASS}`];
+
+  test("i: a passed gate copies the tree and exits 0, outside any repository", async () => {
+    const dir = logsFixture(passing);
+    const status = io();
+    expect(await runCli(["status", "--cwd", dir], status.io, env)).toBe(2);
+    expect(status.err()).toContain("not a git repository");
+
+    const published = io();
+    expect(
+      await runCli(publishArgs(dir, "alpha,beta"), published.io, env),
+    ).toBe(0);
+    expect(published.out()).toBe(
+      "named=2 passed=2 absent=0 not_passed=0\npublished files=2\n",
+    );
+    expect(published.err()).toBe("");
+    expect(readFileSync(join(dir, "out", "a.stdout.log"), "utf8")).toBe(
+      "first\n",
+    );
+    expect(
+      readFileSync(join(dir, "out", "nested", "b.stderr.log"), "utf8"),
+    ).toBe("second\n");
+    expect(readdirSync(join(dir, "out", "nested", "empty"))).toEqual([]);
+  });
+
+  test("i: --json prints the gate report and nothing else", async () => {
+    const dir = logsFixture(passing);
+    const published = io();
+    expect(
+      await runCli(
+        [...publishArgs(dir, "alpha,beta"), "--json"],
+        published.io,
+        env,
+      ),
+    ).toBe(0);
+    expect(JSON.parse(published.out())).toEqual({
+      named: 2,
+      passed: 2,
+      absent: 0,
+      not_passed: 0,
+      controls: [
+        { name: "alpha", state: "passed", lines: 1 },
+        { name: "beta", state: "passed", lines: 1 },
+      ],
+      publish: true,
+    });
+    expect(existsSync(join(dir, "out", "a.stdout.log"))).toBe(true);
+  });
+
+  test("ii: a withheld gate names the controls, exits 1 and creates nothing", async () => {
+    const dir = logsFixture([
+      `alpha boot ${PASS}`,
+      "beta boot expected=pass got=fail unexpected",
+    ]);
+    const withheld = io();
+    expect(
+      await runCli(publishArgs(dir, "alpha,beta,gamma"), withheld.io, env),
+    ).toBe(1);
+    expect(withheld.out()).toBe(
+      "beta not_passed\ngamma absent\nnamed=3 passed=1 absent=1 not_passed=1\nwithheld\n",
+    );
+    expect(existsSync(join(dir, "out"))).toBe(false);
+  });
+
+  test("iii: an existing --to is a usage error and stays intact", async () => {
+    const dir = logsFixture(passing);
+    mkdirSync(join(dir, "out"));
+    writeFileSync(join(dir, "out", "keep.txt"), "kept\n");
+    const refused = io();
+    expect(await runCli(publishArgs(dir, "alpha,beta"), refused.io, env)).toBe(
+      2,
+    );
+    expect(refused.err()).toBe("evidence: publish-logs: out already exists\n");
+    expect(readdirSync(join(dir, "out"))).toEqual(["keep.txt"]);
+    expect(readFileSync(join(dir, "out", "keep.txt"), "utf8")).toBe("kept\n");
+  });
+
+  test("iv: a symbolic link under --from withholds and creates nothing", async () => {
+    const dir = logsFixture(passing);
+    symlinkSync(
+      join(dir, "summary.txt"),
+      join(dir, "logs", "nested", "link.log"),
+    );
+    const withheld = io();
+    expect(await runCli(publishArgs(dir, "alpha,beta"), withheld.io, env)).toBe(
+      1,
+    );
+    expect(withheld.out()).toBe("named=2 passed=2 absent=0 not_passed=0\n");
+    expect(withheld.err()).toBe(
+      `evidence: withheld: ${join(dir, "logs", "nested", "link.log")} is not a regular file or a directory\n`,
+    );
+    expect(existsSync(join(dir, "out"))).toBe(false);
+  });
+
+  test("v: an unreadable summary withholds and creates nothing", async () => {
+    const dir = logsFixture(passing);
+    const args = publishArgs(dir, "alpha,beta");
+    args[2] = "absent.txt";
+    const withheld = io();
+    expect(await runCli(args, withheld.io, env)).toBe(1);
+    expect(withheld.out()).toBe("");
+    expect(withheld.err()).toBe(
+      "evidence: withheld: cannot read summary absent.txt\n",
+    );
+    expect(existsSync(join(dir, "out"))).toBe(false);
+  });
+
+  test("vi: --controls absent, empty or naming a control twice exits 2", async () => {
+    const dir = logsFixture(passing);
+    const absent = publishArgs(dir, "alpha").filter(
+      (arg) => arg !== "--controls" && arg !== "alpha",
+    );
+    for (const args of [
+      absent,
+      publishArgs(dir, ","),
+      publishArgs(dir, "alpha,beta,alpha"),
+    ]) {
+      const refused = io();
+      expect(await runCli(args, refused.io, env)).toBe(2);
+      expect(existsSync(join(dir, "out"))).toBe(false);
+    }
+    for (const flag of ["--summary", "--from", "--to"]) {
+      const args = publishArgs(dir, "alpha,beta");
+      args.splice(args.indexOf(flag), 2);
+      const refused = io();
+      expect(await runCli(args, refused.io, env)).toBe(2);
+    }
+  });
+
+  test("an unreadable --from, or one that is a link or a file, withholds", async () => {
+    const dir = logsFixture(passing);
+    symlinkSync(join(dir, "logs"), join(dir, "linked"));
+    for (const from of ["missing", "linked", "summary.txt"]) {
+      const args = publishArgs(dir, "alpha,beta");
+      args[6] = from;
+      const withheld = io();
+      expect(await runCli([...args, "--json"], withheld.io, env)).toBe(1);
+      expect(JSON.parse(withheld.out()).error).toStartWith("withheld: ");
+      expect(existsSync(join(dir, "out"))).toBe(false);
+    }
+  });
+
+  test("a failed copy removes the partial destination it created", async () => {
+    const dir = logsFixture(passing);
+    // Unreadable for its owner: the listing passes, the read fails.
+    chmodSync(join(dir, "logs", "nested", "b.stderr.log"), 0o000);
+    const withheld = io();
+    expect(await runCli(publishArgs(dir, "alpha,beta"), withheld.io, env)).toBe(
+      1,
+    );
+    expect(withheld.err()).toBe(
+      `evidence: withheld: cannot read ${join(dir, "logs", "nested", "b.stderr.log")}\n`,
+    );
+    expect(existsSync(join(dir, "out"))).toBe(false);
+  });
+
+  test("a destination whose parent is missing withholds", async () => {
+    const dir = logsFixture(passing);
+    const args = publishArgs(dir, "alpha,beta");
+    args[8] = join("no", "such", "out");
+    const withheld = io();
+    expect(await runCli(args, withheld.io, env)).toBe(1);
+    expect(withheld.err()).toBe(
+      `evidence: withheld: cannot create ${join(dir, "no", "such", "out")}\n`,
+    );
+    expect(existsSync(join(dir, "no"))).toBe(false);
   });
 });

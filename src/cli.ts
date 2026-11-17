@@ -1,11 +1,23 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { summarizeAcceptance } from "./acceptance.ts";
 import type { SessionIdentity } from "./bundle.ts";
 import { runProcess } from "./exec.ts";
-import type { Result } from "./result.ts";
+import { formatLeakReport, leakCheck } from "./leak-check.ts";
+import { evaluatePublishGate, formatPublishGate } from "./publish-gate.ts";
+import { fail, ok, type Result } from "./result.ts";
 import { EvidenceService, resolveRepoRoot, summarize } from "./service.ts";
+import { readStableFile } from "./stable-read.ts";
 
 export const USAGE = [
   "evidence <command> [options]",
@@ -20,6 +32,8 @@ export const USAGE = [
   "  attach    [ID] --kind verify-runtime|report --file PATH",
   "  decide    [ID] --by NAME --decision accepted|rejected [--note TEXT]",
   "  prune     --keep N [--dry-run]",
+  "  leak-check   --reference FILE LOG...   exit 0 only when no reference value is in any log",
+  "  publish-logs --summary FILE --controls a,b --from DIR --to DIR   copy only when each control passed once",
   "",
   "Global: --json (machine output), --cwd DIR. Session identity: EVIDENCE_SESSION_ID,",
   "EVIDENCE_PROVIDER, EVIDENCE_MODEL (defaults: cli:<pid>, cli, none).",
@@ -92,6 +106,88 @@ function sessionFromEnv(
   };
 }
 
+interface LogTree {
+  // Relative paths; a directory always precedes what it contains.
+  readonly directories: readonly string[];
+  readonly files: readonly string[];
+}
+
+// Lists the tree before anything is written. A symbolic link, or any entry
+// that is neither a regular file nor a directory, refuses the whole tree: a
+// link would publish content from outside the directory that was checked.
+async function listLogTree(root: string): Promise<Result<LogTree>> {
+  const directories: string[] = [];
+  const files: string[] = [];
+  const pending: string[] = [""];
+  try {
+    if (!(await lstat(root)).isDirectory())
+      return fail(`${root} is not a directory`);
+    for (
+      let relative = pending.pop();
+      relative !== undefined;
+      relative = pending.pop()
+    ) {
+      const entries = await readdir(join(root, relative), {
+        withFileTypes: true,
+      });
+      for (const entry of entries) {
+        const child = join(relative, entry.name);
+        if (entry.isDirectory()) {
+          directories.push(child);
+          pending.push(child);
+        } else if (entry.isFile()) {
+          files.push(child);
+        } else {
+          return fail(
+            `${join(root, child)} is not a regular file or a directory`,
+          );
+        }
+      }
+    }
+  } catch {
+    return fail(`cannot read ${root}`);
+  }
+  return ok({ directories, files });
+}
+
+async function writeLogTree(
+  from: string,
+  to: string,
+  tree: LogTree,
+): Promise<Result<number>> {
+  try {
+    for (const directory of tree.directories) await mkdir(join(to, directory));
+    for (const file of tree.files) {
+      // The stable read refuses a link planted after the listing.
+      const read = await readStableFile(
+        join(from, file),
+        Number.MAX_SAFE_INTEGER,
+      );
+      if (!read.ok) return read;
+      await writeFile(join(to, file), read.value.bytes, { flag: "wx" });
+    }
+  } catch {
+    return fail(`cannot write under ${to}`);
+  }
+  return ok(tree.files.length);
+}
+
+// The destination exists only when the copy is complete. It is created here,
+// without its parents and never over an existing path, so the removal on
+// failure only ever deletes what this call created.
+async function copyLogTree(from: string, to: string): Promise<Result<number>> {
+  const tree = await listLogTree(from);
+  if (!tree.ok) return tree;
+  try {
+    await mkdir(to);
+  } catch {
+    return fail(`cannot create ${to}`);
+  }
+  const written = await writeLogTree(from, to, tree.value);
+  if (!written.ok) await rm(to, { recursive: true, force: true });
+  return written;
+}
+
 // Every command returns an exit code; the CLI prints either human text or one
 // JSON document, never both, so CI can parse it.
 export async function runCli(
@@ -113,10 +209,74 @@ export async function runCli(
     io.stdout(`${USAGE}\n`);
     return 0;
   }
-  const root = await resolveRepoRoot(
-    runProcess,
-    text(parsed.flags, "cwd") ?? process.cwd(),
-  );
+  // These two commands read plain files and are routed before the git root
+  // is resolved: they must answer outside any repository.
+  const cwd = text(parsed.flags, "cwd");
+  const at = (path: string): string =>
+    cwd === undefined ? path : resolve(cwd, path);
+  switch (parsed.command) {
+    case "leak-check": {
+      const reference = text(parsed.flags, "reference");
+      if (reference === undefined || parsed.positional.length === 0)
+        return failWith("leak-check needs --reference FILE and LOG...");
+      const checked = await leakCheck(at(reference), parsed.positional.map(at));
+      if (!checked.ok) return failWith(checked.error, 1);
+      emit(formatLeakReport(checked.value), checked.value);
+      // An empty reference has checked nothing: it is a failure, not a pass.
+      return checked.value.reference > 0 && checked.value.leaks === 0 ? 0 : 1;
+    }
+    case "publish-logs": {
+      const summary = text(parsed.flags, "summary");
+      const from = text(parsed.flags, "from");
+      const to = text(parsed.flags, "to");
+      const controls = (text(parsed.flags, "controls") ?? "")
+        .split(",")
+        .filter((name) => name !== "");
+      if (
+        summary === undefined ||
+        from === undefined ||
+        to === undefined ||
+        controls.length === 0
+      ) {
+        return failWith(
+          "publish-logs needs --summary FILE --controls a,b --from DIR --to DIR",
+        );
+      }
+      if (new Set(controls).size !== controls.length)
+        return failWith("publish-logs: a control is named twice in --controls");
+      const destination = at(to);
+      const taken = await lstat(destination).then(
+        () => true,
+        () => false,
+      );
+      if (taken) return failWith(`publish-logs: ${to} already exists`);
+      let content: string;
+      try {
+        content = await readFile(at(summary), "utf8");
+      } catch {
+        return failWith(`withheld: cannot read summary ${summary}`, 1);
+      }
+      const report = evaluatePublishGate(content, controls);
+      const lines = [
+        ...report.controls
+          .filter((control) => control.state !== "passed")
+          .map((control) => `${control.name} ${control.state}`),
+        formatPublishGate(report),
+      ];
+      if (!report.publish) {
+        emit([...lines, "withheld"].join("\n"), report);
+        return 1;
+      }
+      const copied = await copyLogTree(at(from), destination);
+      if (!copied.ok) {
+        if (!json) io.stdout(`${lines.join("\n")}\n`);
+        return failWith(`withheld: ${copied.error}`, 1);
+      }
+      emit([...lines, `published files=${copied.value}`].join("\n"), report);
+      return 0;
+    }
+  }
+  const root = await resolveRepoRoot(runProcess, cwd ?? process.cwd());
   if (!root.ok) return failWith(root.error);
   const service = new EvidenceService({
     exec: runProcess,

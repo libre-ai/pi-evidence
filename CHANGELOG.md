@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- `leak-check` : contrôle de fuite par valeurs de référence, octet pour octet,
+  sur des journaux ; la sortie ne porte que des chemins et des compteurs,
+  jamais une valeur ni un extrait. Une référence vide ou une source illisible
+  est un échec.
+- `publish-logs` : copie d'un répertoire de journaux conditionnée par un
+  résumé de contrôles (exactement une ligne réussie par contrôle nommé) ; la
+  destination n'existe que si la garde est passée et la copie complète.
 - `attach` : lecture stable de la pièce jointe (refus des liens symboliques,
   borne de 16 Mio, refus si l'identité ou la version du fichier change entre
   inspection, ouverture, lecture et inspection finale) ; la copie stockée est
