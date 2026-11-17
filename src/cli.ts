@@ -1,9 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { lstat, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { summarizeAcceptance } from "./acceptance.ts";
 import type { SessionIdentity } from "./bundle.ts";
 import { runProcess } from "./exec.ts";
+import { formatLeakReport, leakCheck } from "./leak-check.ts";
+import { copyLogTree } from "./log-tree.ts";
+import { evaluatePublishGate, formatPublishGate } from "./publish-gate.ts";
 import type { Result } from "./result.ts";
 import { EvidenceService, resolveRepoRoot, summarize } from "./service.ts";
 
@@ -20,6 +25,8 @@ export const USAGE = [
   "  attach    [ID] --kind verify-runtime|report --file PATH",
   "  decide    [ID] --by NAME --decision accepted|rejected [--note TEXT]",
   "  prune     --keep N [--dry-run]",
+  "  leak-check   --reference FILE LOG...   exit 0 only when no reference value is in any log",
+  "  publish-logs --summary FILE --controls a,b --from DIR --to DIR   copy only when each control passed once",
   "",
   "Global: --json (machine output), --cwd DIR. Session identity: EVIDENCE_SESSION_ID,",
   "EVIDENCE_PROVIDER, EVIDENCE_MODEL (defaults: cli:<pid>, cli, none).",
@@ -113,10 +120,85 @@ export async function runCli(
     io.stdout(`${USAGE}\n`);
     return 0;
   }
-  const root = await resolveRepoRoot(
-    runProcess,
-    text(parsed.flags, "cwd") ?? process.cwd(),
-  );
+  // These two commands read plain files and are routed before the git root
+  // is resolved: they must answer outside any repository.
+  const cwd = text(parsed.flags, "cwd");
+  const at = (path: string): string =>
+    cwd === undefined ? path : resolve(cwd, path);
+  switch (parsed.command) {
+    case "leak-check": {
+      const reference = text(parsed.flags, "reference");
+      if (reference === undefined || parsed.positional.length === 0)
+        return failWith("leak-check needs --reference FILE and LOG...");
+      // Resolved inside, reported as given: the base may be a reference value.
+      const checked = await leakCheck(reference, parsed.positional, cwd);
+      if (!checked.ok) return failWith(checked.error, 1);
+      emit(formatLeakReport(checked.value), checked.value);
+      // An empty reference has checked nothing: it is a failure, not a pass.
+      return checked.value.reference > 0 && checked.value.leaks === 0 ? 0 : 1;
+    }
+    case "publish-logs": {
+      const summary = text(parsed.flags, "summary");
+      const from = text(parsed.flags, "from");
+      const to = text(parsed.flags, "to");
+      const controls = (text(parsed.flags, "controls") ?? "")
+        .split(",")
+        .filter((name) => name !== "");
+      if (
+        summary === undefined ||
+        from === undefined ||
+        to === undefined ||
+        controls.length === 0
+      ) {
+        return failWith(
+          "publish-logs needs --summary FILE --controls a,b --from DIR --to DIR",
+        );
+      }
+      if (new Set(controls).size !== controls.length)
+        return failWith("publish-logs: a control is named twice in --controls");
+      const destination = at(to);
+      const taken = await lstat(destination).then(
+        () => true,
+        () => false,
+      );
+      if (taken) return failWith(`publish-logs: ${to} already exists`);
+      let content: string;
+      try {
+        content = await readFile(at(summary), "utf8");
+      } catch {
+        return failWith(`withheld: cannot read summary ${summary}`, 1);
+      }
+      const report = evaluatePublishGate(content, controls);
+      const lines = [
+        ...report.controls
+          .filter((control) => control.state !== "passed")
+          .map((control) => `${control.name} ${control.state}`),
+        formatPublishGate(report),
+      ];
+      if (!report.publish) {
+        emit([...lines, "withheld"].join("\n"), report);
+        return 1;
+      }
+      const copied = await copyLogTree(at(from), destination);
+      if (!copied.ok) {
+        // The gate passed but nothing was published: the report says so,
+        // in text as in JSON, next to the reason.
+        if (!json) {
+          io.stdout(`${lines.join("\n")}\n`);
+          return failWith(`withheld: ${copied.error}`, 1);
+        }
+        emit("", {
+          ...report,
+          publish: false,
+          error: `withheld: ${copied.error}`,
+        });
+        return 1;
+      }
+      emit([...lines, `published files=${copied.value}`].join("\n"), report);
+      return 0;
+    }
+  }
+  const root = await resolveRepoRoot(runProcess, cwd ?? process.cwd());
   if (!root.ok) return failWith(root.error);
   const service = new EvidenceService({
     exec: runProcess,
