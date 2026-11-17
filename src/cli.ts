@@ -1,23 +1,16 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  lstat,
-  mkdir,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { lstat, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { summarizeAcceptance } from "./acceptance.ts";
 import type { SessionIdentity } from "./bundle.ts";
 import { runProcess } from "./exec.ts";
 import { formatLeakReport, leakCheck } from "./leak-check.ts";
+import { copyLogTree } from "./log-tree.ts";
 import { evaluatePublishGate, formatPublishGate } from "./publish-gate.ts";
-import { fail, ok, type Result } from "./result.ts";
+import type { Result } from "./result.ts";
 import { EvidenceService, resolveRepoRoot, summarize } from "./service.ts";
-import { readStableFile } from "./stable-read.ts";
 
 export const USAGE = [
   "evidence <command> [options]",
@@ -106,88 +99,6 @@ function sessionFromEnv(
   };
 }
 
-interface LogTree {
-  // Relative paths; a directory always precedes what it contains.
-  readonly directories: readonly string[];
-  readonly files: readonly string[];
-}
-
-// Lists the tree before anything is written. A symbolic link, or any entry
-// that is neither a regular file nor a directory, refuses the whole tree: a
-// link would publish content from outside the directory that was checked.
-async function listLogTree(root: string): Promise<Result<LogTree>> {
-  const directories: string[] = [];
-  const files: string[] = [];
-  const pending: string[] = [""];
-  try {
-    if (!(await lstat(root)).isDirectory())
-      return fail(`${root} is not a directory`);
-    for (
-      let relative = pending.pop();
-      relative !== undefined;
-      relative = pending.pop()
-    ) {
-      const entries = await readdir(join(root, relative), {
-        withFileTypes: true,
-      });
-      for (const entry of entries) {
-        const child = join(relative, entry.name);
-        if (entry.isDirectory()) {
-          directories.push(child);
-          pending.push(child);
-        } else if (entry.isFile()) {
-          files.push(child);
-        } else {
-          return fail(
-            `${join(root, child)} is not a regular file or a directory`,
-          );
-        }
-      }
-    }
-  } catch {
-    return fail(`cannot read ${root}`);
-  }
-  return ok({ directories, files });
-}
-
-async function writeLogTree(
-  from: string,
-  to: string,
-  tree: LogTree,
-): Promise<Result<number>> {
-  try {
-    for (const directory of tree.directories) await mkdir(join(to, directory));
-    for (const file of tree.files) {
-      // The stable read refuses a link planted after the listing.
-      const read = await readStableFile(
-        join(from, file),
-        Number.MAX_SAFE_INTEGER,
-      );
-      if (!read.ok) return read;
-      await writeFile(join(to, file), read.value.bytes, { flag: "wx" });
-    }
-  } catch {
-    return fail(`cannot write under ${to}`);
-  }
-  return ok(tree.files.length);
-}
-
-// The destination exists only when the copy is complete. It is created here,
-// without its parents and never over an existing path, so the removal on
-// failure only ever deletes what this call created.
-async function copyLogTree(from: string, to: string): Promise<Result<number>> {
-  const tree = await listLogTree(from);
-  if (!tree.ok) return tree;
-  try {
-    await mkdir(to);
-  } catch {
-    return fail(`cannot create ${to}`);
-  }
-  const written = await writeLogTree(from, to, tree.value);
-  if (!written.ok) await rm(to, { recursive: true, force: true });
-  return written;
-}
-
 // Every command returns an exit code; the CLI prints either human text or one
 // JSON document, never both, so CI can parse it.
 export async function runCli(
@@ -219,7 +130,8 @@ export async function runCli(
       const reference = text(parsed.flags, "reference");
       if (reference === undefined || parsed.positional.length === 0)
         return failWith("leak-check needs --reference FILE and LOG...");
-      const checked = await leakCheck(at(reference), parsed.positional.map(at));
+      // Resolved inside, reported as given: the base may be a reference value.
+      const checked = await leakCheck(reference, parsed.positional, cwd);
       if (!checked.ok) return failWith(checked.error, 1);
       emit(formatLeakReport(checked.value), checked.value);
       // An empty reference has checked nothing: it is a failure, not a pass.
@@ -269,8 +181,18 @@ export async function runCli(
       }
       const copied = await copyLogTree(at(from), destination);
       if (!copied.ok) {
-        if (!json) io.stdout(`${lines.join("\n")}\n`);
-        return failWith(`withheld: ${copied.error}`, 1);
+        // The gate passed but nothing was published: the report says so,
+        // in text as in JSON, next to the reason.
+        if (!json) {
+          io.stdout(`${lines.join("\n")}\n`);
+          return failWith(`withheld: ${copied.error}`, 1);
+        }
+        emit("", {
+          ...report,
+          publish: false,
+          error: `withheld: ${copied.error}`,
+        });
+        return 1;
       }
       emit([...lines, `published files=${copied.value}`].join("\n"), report);
       return 0;

@@ -72,11 +72,15 @@ Ces deux commandes lisent des fichiers ordinaires et répondent hors dépôt git
 (chemins résolus contre `--cwd`). `leak-check` complète le caviardage par
 motifs : il compte des valeurs connues après coup et ne dérive aucune
 variante, la référence porte donc chaque forme à chercher (chemin avec et sans
-préfixe, empreinte). Ligne de résumé lue par `publish-logs` :
+préfixe, empreinte). Il imprime chaque journal tel que l'appelant l'a nommé
+(jamais résolu contre `--cwd`), et remplace par `[masked log N]` tout chemin
+qui contient une valeur de référence. Ligne de résumé lue par `publish-logs` :
 `<contrôle> <situation> expected=<pass|fail> got=<pass|fail> <as-expected|unexpected>` ;
 un contrôle absent, en double, réduit à un témoin `expected=fail`, ou
 accompagné d'une ligne malformée retient la publication. `--to` ne doit pas
-exister, et un lien symbolique sous `--from` retient tout.
+exister, et un lien symbolique sous `--from` retient tout. Un fichier n'est
+copié que s'il est celui qui a été listé (même périphérique et inode) ; un
+échec de copie en `--json` rend le rapport avec `publish: false` et `error`.
 
 ### Garde de fin de tour
 

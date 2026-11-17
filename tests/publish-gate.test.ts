@@ -1,8 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as original from "../src/publish-gate.ts";
@@ -208,11 +214,10 @@ describe("publish gate mutants", () => {
   // The copies live under a `node_modules` directory of the temporary
   // directory: Bun's coverage leaves such files out, and a mutant, whose dead
   // branch is the point, would otherwise fall under the per-file threshold.
-  const directory = join(
-    mkdtempSync(join(tmpdir(), "evidence-gate-mutant-")),
-    "node_modules",
-  );
+  const root = mkdtempSync(join(tmpdir(), "evidence-gate-mutant-"));
+  const directory = join(root, "node_modules");
   mkdirSync(directory);
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
 
   for (const mutant of MUTANTS) {
     test(`${mutant.id} turns cases ${mutant.red.join(", ")} red`, async () => {

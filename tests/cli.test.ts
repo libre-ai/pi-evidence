@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import {
   chmodSync,
@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -272,9 +273,15 @@ describe("evidence CLI", () => {
 
 const PASS = "expected=pass got=pass as-expected";
 
+const publishDirs: string[] = [];
+afterAll(() => {
+  for (const dir of publishDirs) rmSync(dir, { recursive: true, force: true });
+});
+
 // A directory outside any git repository: a summary and a tree of logs.
 function logsFixture(summary: readonly string[]): string {
   const dir = mkdtempSync(join(tmpdir(), "evidence-publish-"));
+  publishDirs.push(dir);
   writeFileSync(join(dir, "summary.txt"), `${summary.join("\n")}\n`);
   mkdirSync(join(dir, "logs", "nested", "empty"), { recursive: true });
   writeFileSync(join(dir, "logs", "a.stdout.log"), "first\n");
@@ -452,6 +459,33 @@ describe("evidence publish-logs", () => {
     expect(withheld.err()).toBe(
       `evidence: withheld: cannot read ${join(dir, "logs", "nested", "b.stderr.log")}\n`,
     );
+    expect(existsSync(join(dir, "out"))).toBe(false);
+  });
+
+  test("a failed copy in --json still prints the gate report, withheld", async () => {
+    const dir = logsFixture(passing);
+    chmodSync(join(dir, "logs", "nested", "b.stderr.log"), 0o000);
+    const withheld = io();
+    expect(
+      await runCli(
+        [...publishArgs(dir, "alpha,beta"), "--json"],
+        withheld.io,
+        env,
+      ),
+    ).toBe(1);
+    expect(JSON.parse(withheld.out())).toEqual({
+      named: 2,
+      passed: 2,
+      absent: 0,
+      not_passed: 0,
+      controls: [
+        { name: "alpha", state: "passed", lines: 1 },
+        { name: "beta", state: "passed", lines: 1 },
+      ],
+      publish: false,
+      error: `withheld: cannot read ${join(dir, "logs", "nested", "b.stderr.log")}`,
+    });
+    expect(withheld.err()).toBe("");
     expect(existsSync(join(dir, "out"))).toBe(false);
   });
 

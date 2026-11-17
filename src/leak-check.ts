@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { fail, ok, type Result } from "./result.ts";
 
 // Leak check by reference values: after the fact, look for known values
@@ -61,6 +62,22 @@ function view(bytes: Uint8Array): Buffer {
   return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
+// A log path is printed, so it is itself a channel: a reference that lists a
+// workstation path would otherwise be disclosed by the check that looks for
+// it. A path holding any reference value is replaced, whole, by its position
+// in the log list (1-based); a partial replacement could still carry another
+// variant of the same value.
+function shownPath(
+  path: string,
+  needles: readonly Buffer[],
+  position: number,
+): string {
+  const encoded = Buffer.from(path, "utf8");
+  return needles.some((needle) => encoded.includes(needle))
+    ? `[masked log ${position}]`
+    : path;
+}
+
 export function countLeaks(
   reference: readonly Uint8Array[],
   logs: readonly { readonly file: string; readonly bytes: Uint8Array }[],
@@ -69,12 +86,15 @@ export function countLeaks(
   const leaking: LeakFile[] = [];
   let bytes = 0;
   let leaks = 0;
-  for (const log of logs) {
+  for (const [index, log] of logs.entries()) {
     const haystack = view(log.bytes);
     bytes += haystack.length;
     const found = needles.filter((needle) => haystack.includes(needle)).length;
     if (found > 0) {
-      leaking.push({ file: log.file, leaks: found });
+      leaking.push({
+        file: shownPath(log.file, needles, index + 1),
+        leaks: found,
+      });
       leaks += found;
     }
   }
@@ -97,22 +117,32 @@ export function formatLeakReport(report: LeakReport): string {
 // A declared source that cannot be read is a failure, never an empty one. The
 // error names a path and nothing else: the system message is dropped so that
 // no content can ride on it.
+//
+// Paths are read against `base` when it is given but reported as the caller
+// wrote them: resolving them would print the base directory, which a
+// reference may list. A log path that holds a reference value is masked.
 export async function leakCheck(
   referencePath: string,
   logPaths: readonly string[],
+  base?: string,
 ): Promise<Result<LeakReport>> {
+  const at = (path: string): string =>
+    base === undefined ? path : resolve(base, path);
   let reference: readonly Uint8Array[];
   try {
-    reference = parseReference(await readFile(referencePath));
+    reference = parseReference(await readFile(at(referencePath)));
   } catch {
+    // No value is known yet: nothing can be masked, so the path stays as
+    // given and never gains the base.
     return fail(`cannot read reference ${referencePath}`);
   }
+  const needles = reference.map(view);
   const logs: { file: string; bytes: Uint8Array }[] = [];
-  for (const file of logPaths) {
+  for (const [index, file] of logPaths.entries()) {
     try {
-      logs.push({ file, bytes: await readFile(file) });
+      logs.push({ file, bytes: await readFile(at(file)) });
     } catch {
-      return fail(`cannot read log ${file}`);
+      return fail(`cannot read log ${shownPath(file, needles, index + 1)}`);
     }
   }
   return ok(countLeaks(reference, logs));

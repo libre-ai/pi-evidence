@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Libre AI contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCli } from "../src/cli.ts";
@@ -36,12 +36,18 @@ function io() {
   };
 }
 
+const created: string[] = [];
+afterAll(() => {
+  for (const dir of created) rmSync(dir, { recursive: true, force: true });
+});
+
 // A directory outside any git repository, with a reference and named logs.
 function fixture(
   reference: string,
   logs: Readonly<Record<string, string>>,
 ): string {
   const dir = mkdtempSync(join(tmpdir(), "evidence-leak-"));
+  created.push(dir);
   writeFileSync(join(dir, "reference.txt"), reference);
   for (const [name, content] of Object.entries(logs))
     writeFileSync(join(dir, name), content);
@@ -132,7 +138,7 @@ describe("evidence leak-check", () => {
     ]);
     expect(result.code).toBe(1);
     expect(result.out).toBe(
-      `${join(dir, "a.log")} leaks=1\nfiles=2 bytes=48 reference=1 leaks=1\n`,
+      "a.log leaks=1\nfiles=2 bytes=48 reference=1 leaks=1\n",
     );
     expectNoValue(result.printed);
   });
@@ -175,7 +181,7 @@ describe("evidence leak-check", () => {
       bytes: 72,
       reference: 3,
       leaks: 2,
-      leaking: [{ file: join(dir, "a.log"), leaks: 2 }],
+      leaking: [{ file: "a.log", leaks: 2 }],
     });
     expectNoValue(result.printed);
   });
@@ -196,8 +202,8 @@ describe("evidence leak-check", () => {
     expect(result.code).toBe(1);
     expect(result.out).toBe(
       [
-        `${join(dir, "a.log")} leaks=1`,
-        `${join(dir, "b.log")} leaks=1`,
+        "a.log leaks=1",
+        "b.log leaks=1",
         "files=3 bytes=55 reference=1 leaks=2",
         "",
       ].join("\n"),
@@ -212,7 +218,7 @@ describe("evidence leak-check", () => {
     const result = await run(dir, ["--reference", "reference.txt", "a.log"]);
     expect(result.code).toBe(1);
     expect(result.out).toBe(
-      `${join(dir, "a.log")} leaks=1\nfiles=1 bytes=32 reference=2 leaks=1\n`,
+      "a.log leaks=1\nfiles=1 bytes=32 reference=2 leaks=1\n",
     );
     expectNoValue(result.printed);
   });
@@ -227,15 +233,13 @@ describe("evidence leak-check", () => {
     ]);
     expect(noLog.code).toBe(1);
     expect(noLog.out).toBe("");
-    expect(noLog.err).toBe(
-      `evidence: cannot read log ${join(dir, "missing.log")}\n`,
-    );
+    expect(noLog.err).toBe("evidence: cannot read log missing.log\n");
     expectNoValue(noLog.printed);
 
     const noReference = await run(dir, ["--reference", "absent.txt", "a.log"]);
     expect(noReference.code).toBe(1);
     expect(noReference.err).toBe(
-      `evidence: cannot read reference ${join(dir, "absent.txt")}\n`,
+      "evidence: cannot read reference absent.txt\n",
     );
     expectNoValue(noReference.printed);
 
@@ -247,7 +251,7 @@ describe("evidence leak-check", () => {
     ]);
     expect(asJson.code).toBe(1);
     expect(JSON.parse(asJson.out)).toEqual({
-      error: `cannot read reference ${join(dir, "absent.txt")}`,
+      error: "cannot read reference absent.txt",
     });
 
     // A directory named as a log is unreadable too, not an empty log.
@@ -276,6 +280,44 @@ describe("evidence leak-check", () => {
         expect(result.err).not.toContain(value);
       }
     }
+  });
+
+  test("h: a workstation path in the reference is not printed through --cwd", async () => {
+    // The fixture directory itself is a reference value: resolving the log
+    // paths against --cwd would print it on every channel.
+    const dir = fixture("", {});
+    writeFileSync(join(dir, "reference.txt"), `${dir}\n${VALUES.first}\n`);
+    writeFileSync(join(dir, "a.log"), `cwd is ${dir}/work\n`);
+    const args = ["--reference", "reference.txt", "a.log"];
+    const human = await run(dir, args);
+    const machine = await run(dir, [...args, "--json"]);
+    const failing = await run(dir, [...args, "missing.log"]);
+    const failingJson = await run(dir, [...args, "missing.log", "--json"]);
+    expect(human.code).toBe(1);
+    expect(human.out).toStartWith("a.log leaks=1\n");
+    expect(JSON.parse(machine.out).leaking).toEqual([
+      { file: "a.log", leaks: 1 },
+    ]);
+    expect(failing.err).toBe("evidence: cannot read log missing.log\n");
+    for (const result of [human, machine, failing, failingJson]) {
+      expect(result.out).not.toContain(dir);
+      expect(result.err).not.toContain(dir);
+    }
+  });
+
+  test("h: a log path that holds a reference value is masked, whole", async () => {
+    const dir = fixture(`${VALUES.first}\n`, {
+      "clean.log": "clean",
+      [`${VALUES.first}.log`]: VALUES.first,
+    });
+    const args = ["--reference", "reference.txt", "clean.log"];
+    const leaking = await run(dir, [...args, `${VALUES.first}.log`]);
+    expect(leaking.out).toBe(
+      "[masked log 2] leaks=1\nfiles=2 bytes=29 reference=1 leaks=1\n",
+    );
+    const missing = await run(dir, [...args, `${VALUES.third}${VALUES.first}`]);
+    expect(missing.err).toBe("evidence: cannot read log [masked log 2]\n");
+    expectNoValue(leaking.printed + missing.printed);
   });
 
   test("usage: a missing --reference or an empty log list exits 2", async () => {
