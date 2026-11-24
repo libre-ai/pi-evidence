@@ -2,6 +2,11 @@
 
 ## Non publié
 
+- Dépendance de développement `@earendil-works/pi-coding-agent` : 0.84.2 vers
+  1.6.0 (typecheck et tests inchangés) ; l'override `undici` est retiré, la
+  version transitive 8.12.4 sort des avis `undici`, `glob` et `minimatch`. Les
+  « versions vérifiées » du README et des recettes datées restent celles de la
+  recette du 2026-09-15.
 - `leak-check` : contrôle de fuite par valeurs de référence, octet pour octet,
   sur des journaux ; la sortie ne porte que des chemins et des compteurs,
   jamais une valeur ni un extrait. Une référence vide ou une source illisible
