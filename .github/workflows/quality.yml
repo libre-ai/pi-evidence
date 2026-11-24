@@ -36,7 +36,7 @@ jobs:
           echo "$RUNNER_TEMP/bun-linux-x64" >> "$GITHUB_PATH"
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       - name: Install REUSE tool
-        run: uv tool install reuse==6.2.0 && reuse --version
+        run: uv tool install reuse==6.3.0 && reuse --version
       - name: Install dependencies
         run: |
           test "$(bun --revision)" = '1.4.0-canary.1+57f349f63'
