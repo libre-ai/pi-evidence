@@ -32,7 +32,7 @@ dependencies:
   pinned: github:libre-ai/project-governance#a00daec8d10419f266a9611f589c606858ca86b3
 - 'on': '@earendil-works/pi-coding-agent'
   why: Host extension integration.
-  pinned: 0.84.2
+  pinned: 1.6.0
 maturity: usable
 confidence: medium
 exposure: usable-verifiable
